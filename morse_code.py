@@ -53,7 +53,7 @@ class MorseCode(plugins.Plugin):
     def _blink(self, msg):
         if len(msg) > 0:
             pattern = self._convert_code(msg)
-            logging.debug("[MORSE] '%s' -> '%s'" % (msg, pattern))
+            logging.info("[MORSE] '%s' -> '%s'" % (msg, pattern))
 
             # blank led for one measure ahead of message
             self._led(1)
@@ -81,6 +81,7 @@ class MorseCode(plugins.Plugin):
             time.sleep(7 * self._delay / 1000.0)
             # and back on
             self._led(0)
+            logging.info("[MORSE] sent '%s' -> '%s'" % (msg, pattern))
 
     # thread stuff copied from plugins/default/led.py
 
@@ -99,6 +100,7 @@ class MorseCode(plugins.Plugin):
             fp.write(str(on))
 
     def _worker(self):
+        logging.info("[Morse] worker started")
         while True:
             self._event.wait()
             self._event.clear()
@@ -131,14 +133,22 @@ class MorseCode(plugins.Plugin):
 
     # called when the plugin is loaded
     def on_loaded(self):
-        logging.info("[Morse] loaded" % self.options)
+        try:
+            logging.info("[Morse] loaded" % self.options)
 
-        self._led_file = "/sys/class/leds/led%d/brightness" % self.options['led']
-        self._delay = int(self.options['delay'])
+            _thread.start_new_thread(self._worker, ())
 
-        logging.info("[led] plugin loaded for %s" % self._led_file)
-        self._queue_message('loaded')
-        _thread.start_new_thread(self._worker, ())
+            try:
+                self._led_file = "/sys/class/leds/led%d/brightness" % int(self.options['led'])
+            except Exception as err:
+                self._led_file = "/sys/class/leds/led0/brightness"
+
+            self._delay = int(self.options['delay'])
+
+            logging.info("[Morse] plugin loaded for %s" % self._led_file)
+            self._queue_message('loaded')
+        except Exception as err:
+            logging.warn("[Morse] Load failed: %s" % repr(err))
 
     # called before the plugin is unloaded
     def on_unload(self, ui):
