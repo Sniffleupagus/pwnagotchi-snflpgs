@@ -42,3 +42,11 @@ class DisplayHatMini(DisplayImpl):
 
     def clear(self):
         self._display.clear()
+
+    def set_backlight(self, value):
+        if self._display:
+            self._display.set_backlight(value)
+
+    def get_backlight(self):
+        if self._display:
+            self._display.get_backlight(value)

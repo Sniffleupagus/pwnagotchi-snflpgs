@@ -44,8 +44,10 @@ class View(object):
 
         # pull from configuration
         colormode = '1' if not 'colormode' in self._config['ui'] else self._config['ui']['colormode']
-        if 'foregroundcolor' in self._config['ui']: BLACK = self._config['ui']['foregroundcolor']
-        if 'backgroundcolor' in self._config['ui']: WHITE = self._config['ui']['backgroundcolor']
+        if 'foregroundcolor' in self._config['ui']: pwnagotchi.ui.view.BLACK = self._config['ui']['foregroundcolor']
+        if 'backgroundcolor' in self._config['ui']: pwnagotchi.ui.view.WHITE = self._config['ui']['backgroundcolor']
+        self._foregroundcolor = BLACK
+        self._backgroundcolor = WHITE
 
         self._state = State(state={
             'channel': LabeledValue(color=BLACK, label='CH', value='00', position=self._layout['channel'],
@@ -142,6 +144,28 @@ class View(object):
 
     def get(self, key):
         return self._state.get(key)
+
+    def set_backgroundcolor(self, color):
+        pwnagotchi.ui.view.WHITE = color
+        self._backgroundcolor = pwnagotchi.ui.view.WHITE
+        self._state.set("_WHITE", color)
+
+    def get_background_color(self):
+        return self._backgroundcolor
+
+    def get_default_backgroundcolor(self):
+        return WHITE if not 'backgroundcolor' in self._config['ui'] else self._config['ui']['backgroundcolor']
+
+    def set_foregroundcolor(self, color):
+        pwnagotchi.ui.view.BLACK = color
+        self._foregroundcolor = pwnagotchi.ui.view.BLACK
+        self._state.set("_BLACK", color)
+
+    def get_foreground_color(self):
+        return self._foregroundcolor
+
+    def get_default_foregroundcolor(self):
+        return BLACK if not 'foregroundcolor' in self._config['ui'] else self._config['ui']['foregroundcolor']
 
     def on_starting(self):
         self.set('status', self._voice.on_starting() + ("\n(v%s)" % pwnagotchi.__version__))
@@ -383,8 +407,8 @@ class View(object):
             if force or len(changes):
                 colormode = '1' if not 'colormode' in self._config['ui'] else self._config['ui']['colormode']
 
-                if 'foregroundcolor' in self._config['ui']: BLACK = self._config['ui']['foregroundcolor']
-                if 'backgroundcolor' in self._config['ui']: WHITE = self._config['ui']['backgroundcolor']
+                #if 'foregroundcolor' in self._config['ui']: pwnagotchi.ui.view.BLACK = self._config['ui']['foregroundcolor']
+                #if 'backgroundcolor' in self._config['ui']: pwnagotchi.ui.view.WHITE = self._config['ui']['backgroundcolor']
 
                 self._canvas = Image.new(colormode, (self._width, self._height), WHITE)
                 drawer = ImageDraw.Draw(self._canvas)
