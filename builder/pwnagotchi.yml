@@ -5,12 +5,13 @@
   become: true
   vars:
     kernel:
-      min: "6.1"
-      full: "6.1.21+"
+      min: "5.15"
+      full: "5.15.84+"
       arch: "v6l"
     pwnagotchi:
       hostname: "{{ lookup('env', 'PWN_HOSTNAME') | default('pwnagotchi', true) }}"
       version: "{{ lookup('env', 'PWN_VERSION') | default('pwnagotchi-torch', true) }}"
+      custom_plugin_dir: "/usr/local/share/pwnagotchi/custom-plugins"
     system:
       boot_options:
         - "dtoverlay=dwc2"
@@ -160,7 +161,7 @@
           - zlib1g-dev
   environment:
     ARCHFLAGS: -arch armv6l
-    QEMU_UNAME: 6.1.21+
+    QEMU_UNAME: 5.15.84+
 
   tasks:
   - name: Create pi user
@@ -204,6 +205,40 @@
       path: /etc/dphys-swapfile
       regexp: "^CONF_SWAPSIZE=.*$"
       line: "CONF_SWAPSIZE=2048"
+
+  - name: Create custom plugin directory
+    file:
+      path: '{{ pwnagotchi.custom_plugin_dir }}'
+      state: directory
+
+  - name: clone Sniffleupagus plugins
+    git:
+      repo: https://github.com/Sniffleupagus/pwnagotchi_plugins.git
+      dest: /home/pi/git/pwnagotchi_plugins
+    register: sniffleupagus_plugins_fetched
+
+  - name: grab list of plugins
+    ansible.builtin.find:
+      paths: /home/pi/git/pwnagotchi_plugins
+      patterns: '*.py'
+      recurse: no
+    register: sniffleupagus_plugins
+
+  - name: copy to custom plugins
+    ansible.builtin.copy:
+      src: '{{ item.path }}'
+      dest: '{{ pwnagotchi.custom_plugin_dir }}'
+      follow: yes
+    with_items: '{{ sniffleupagus_plugins.files }}'
+
+  - name: get kernel versions to build against
+    ansible.builtin.find:
+      path: /lib/modules
+      recurse: no
+      register: kernel_versions
+
+  - debug:
+      var: kernel_versions
 
   - name: update apt package cache
     apt:
@@ -294,6 +329,9 @@
       executable: /bin/bash
       chdir: /usr/local/src/nexmon/
 
+  # the firmware prep just needs to be done once, but the kernel modules
+  # below need to be build for each kernel version in /lib/modules
+
   # skip these two for now, since they are not on pizero
   # to do them right, loop through all kernel variants and run these steps for each
   # pi3b, 4b wireless
@@ -356,8 +394,13 @@
       state: absent
       path: /usr/lib/firmware/brcm/brcmfmac43430-sdio.raspberrypi,3-model-b.clm_blob
 
-#  - name: backup original driver
-#    command: "cp /usr/lib/modules/{{ kernel.full }}/kernel/drivers/net/wireless/broadcom/brcm80211/brcmfmac/brcmfmac.ko.xz /usr/lib/modules/{{ kernel.full }}/kernel/drivers/net/wireless/broadcom/brcm80211/brcmfmac/brcmfmac.ko.xz.orig"
+  - name: backup original driver, compressed, if there
+    command: "cp /usr/lib/modules/{{ kernel.full }}/kernel/drivers/net/wireless/broadcom/brcm80211/brcmfmac/brcmfmac.ko.xz /usr/lib/modules/{{ kernel.full }}/kernel/drivers/net/wireless/broadcom/brcm80211/brcmfmac/brcmfmac.ko.xz.orig"
+    ignore_errors: true
+
+  - name: backup original driver, uncompressed, if there
+    command: "cp /usr/lib/modules/{{ kernel.full }}/kernel/drivers/net/wireless/broadcom/brcm80211/brcmfmac/brcmfmac.ko /usr/lib/modules/{{ kernel.full }}/kernel/drivers/net/wireless/broadcom/brcm80211/brcmfmac/brcmfmac.ko.orig"
+    ignore_errors: true
 
   - name: copy modified driver
     copy:
@@ -373,11 +416,6 @@
     file:
       state: absent
       path: /usr/local/src/nexmon/
-
-  - name: Create custom plugin directory
-    file:
-      path: /usr/local/share/pwnagotchi/custom-plugins/
-      state: directory
 
   - name: clone pwnagotchi repository
     git:
@@ -412,66 +450,98 @@
       state: absent
       path: /usr/local/src/pwnagotchi
 
-  - name: download pwngrid binary
-    get_url:
-      url: "{{ packages.pwngrid.binary }}"
-      dest: /usr/local/bin/pwngrid
-      mode: '0755'
+  # - name: download pwngrid binary
+  #   get_url:
+  #     url: "{{ packages.pwngrid.binary }}"
+  #     dest: /usr/local/bin/pwngrid
+  #     mode: '0755'
+  #  register: pwngrid
+
+  - name: download pwngrid 1.10.4
+    git:
+      repo: https://github.com/jayofelony/pwngrid.git
+      dest: /usr/local/src/pwngrid
     register: pwngrid
-  
-        #- name: download pwngrid 1.10.4
-        #git:
-        #repo: https://github.com/jayofelony/pwngrid.git
-        #dest: /usr/local/src/pwngrid
-        #register: pwngrid
-        #
-        #- name: install pwngrid 1.10.4
-        #shell: "export GOPATH=$HOME/go && export PATH=/usr/local/go/bin:$PATH:$GOPATH/bin && go mod tidy && make && make install"
-        #register: result
-        #retries: 7
-        #args:
-        #executable: /bin/bash
-        #chdir: /usr/local/src/pwngrid
-        #when: pwngrid.changed
-        #until: result is not failed
-        #
-        #- name: remove pwngrid folder
-        #file:
-        #state: absent
-        #path: /usr/local/src/pwngrid
+
+  - name: go mod tidy
+    shell: "export GOPATH=$HOME/go && export PATH=/usr/local/go/bin:$PATH:%GOPATH/bin && go mod tidy"
+    register: result
+    retries: 7
+    args:
+      executable: /bin/bash
+      chdir: /usr/local/src/pwngrid
+    when: pwngrid.changed
+    until: result is not failed
+
+  - name: build pwngrid 1.10.4
+    shell: "export GOPATH=$HOME/go && export PATH=/usr/local/go/bin:$PATH:$GOPATH/bin &&  make"
+    register: result
+    args:
+      executable: /bin/bash
+      chdir: /usr/local/src/pwngrid
+    when: pwngrid.changed
+
+  - name: install pwngrid 1.10.4
+    shell: "export GOPATH=$HOME/go && export PATH=/usr/local/go/bin:$PATH:$GOPATH/bin && make install"
+    register: result
+    args:
+      executable: /bin/bash
+      chdir: /usr/local/src/pwngrid
+    when: pwngrid.changed
+
+  - name: remove pwngrid folder
+    file:
+      state: absent
+      path: /usr/local/src/pwngrid
 
       #
       # Try to provide this as an "upload" from the host
       # and keep these in a local directory
       #
 
-  - name: download bettercap binary
-    get_url:
-      url: "{{ packages.bettercap.binary }}"
-      dest: /usr/local/bin/bettercap
-      mode: '0755'
+  # - name: download bettercap binary
+  #   get_url:
+  #     url: "{{ packages.bettercap.binary }}"
+  #     dest: /usr/local/bin/bettercap
+  #     mode: '0755'
+  #   register: bettercap
+
+  - name: download bettercap v2.32.1
+    git:
+      repo: https://github.com/jayofelony/bettercap.git
+      dest: /usr/local/src/bettercap
     register: bettercap
-  
-        #- name: download bettercap v2.32.1
-        #git:
-        #repo: https://github.com/jayofelony/bettercap.git
-        #dest: /usr/local/src/bettercap
-        #register: bettercap
-        #
-        #- name: Install bettercap v2.32.1
-        #shell: "export GOPATH=$HOME/go && export PATH=/usr/local/go/bin:$PATH:$GOPATH/bin && go mod tidy && make && make install"
-        #register: result
-        #retries: 7
-        #args:
-        #executable: /bin/bash
-        #chdir: /usr/local/src/bettercap
-        #when: bettercap.changed
-        #until: result is not failed
-        #
-        #- name: remove bettercap folder
-        #file:
-        #state: absent
-        #path: /usr/local/src/bettercap
+
+  - name: go mod tidy for bettercap v2.32.1
+    shell: "export GOPATH=$HOME/go && export PATH=/usr/local/go/bin:$PATH:$GOPATH/bin && go mod tidy"
+    register: result
+    retries: 7
+    args:
+      executable: /bin/bash
+      chdir: /usr/local/src/bettercap
+    when: bettercap.changed
+    until: result is not failed
+
+  - name: build bettercap v2.32.1
+    shell: "export GOPATH=$HOME/go && export PATH=/usr/local/go/bin:$PATH:$GOPATH/bin && make"
+    register: result
+    args:
+      executable: /bin/bash
+      chdir: /usr/local/src/bettercap
+    when: bettercap.changed
+
+  - name: install bettercap v2.32.1
+    shell: "export GOPATH=$HOME/go && export PATH=/usr/local/go/bin:$PATH:$GOPATH/bin && make install"
+    register: result
+    args:
+      executable: /bin/bash
+      chdir: /usr/local/src/bettercap
+    when: bettercap.changed
+
+  - name: remove bettercap folder
+    file:
+      state: absent
+      path: /usr/local/src/bettercap
 
   - name: clone bettercap caplets
     git:
@@ -652,6 +722,11 @@
     args:
       executable: /bin/bash
       chdir: /usr/local/src
+
+  - name: remove /root/.cache (pip)
+    file:
+      state: absent
+      path: /root/.cache
 
   handlers:
   - name: reload systemd services
