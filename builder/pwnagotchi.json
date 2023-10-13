@@ -3,19 +3,19 @@
     {
       "name": "pwnagotchi",
       "type": "arm-image",
-	"iso_url": "http://downloads.raspberrypi.org/raspios_lite_armhf/images/raspios_lite_armhf-2023-02-22/2023-02-21-raspios-bullseye-armhf-lite.img.xz",
-      "iso_checksum": "file:http://downloads.raspberrypi.org/raspios_lite_armhf/images/raspios_lite_armhf-2023-02-22/2023-02-21-raspios-bullseye-armhf-lite.img.xz.sha256",
+      "iso_url": "http://downloads.raspberrypi.org/raspios_lite_armhf/images/raspios_lite_armhf-2023-05-03/2023-05-03-raspios-bullseye-armhf-lite.img.xz",
+      "iso_checksum": "file:http://downloads.raspberrypi.org/raspios_lite_armhf/images/raspios_lite_armhf-2023-05-03/2023-05-03-raspios-bullseye-armhf-lite.img.xz.sha256",
       "target_image_size": 9368709120,
       "qemu_binary": "qemu-arm-static",
-      "qemu_args": [ "-cpu", "arm1176", "-r", "5.15.84+" ],
+      "qemu_args": [ "-cpu", "arm1176", "-r", "6.1.21+" ],
       "output_filename": "../../pwnagotchi-{{user `pwn_version`}}-armhf.img"
     }
   ],
   "provisioners": [
     {
       "type": "file",
-      "source": "../builder/data/usr/bin/pwnlib",
-      "destination": "/usr/bin/pwnlib"
+        "source": "../builder/data/usr/bin/pwnlib",
+        "destination": "/usr/bin/pwnlib"
     },
     {
       "type": "file",

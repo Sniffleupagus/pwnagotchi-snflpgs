@@ -65,7 +65,7 @@ def do_auto_mode(agent):
                 # for each ap on this channel
                 for ap in aps:
                     # send an association frame in order to get for a PMKID
-                    agent.associate(ap)
+                    agent.associate(ap, 0.5)
                     # deauth all client stations in order to get a full handshake
                     for sta in ap['clients']:
                         agent.deauth(ap, sta, 1)  # throttle=1, to not trigger nexmon firmware bugs
