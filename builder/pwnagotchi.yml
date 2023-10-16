@@ -587,7 +587,6 @@
 
   - name: build bettercap v2.32.1
     shell: "export GOPATH=$HOME/go && export PATH=/usr/local/go/bin:$PATH:$GOPATH/bin && make"
-    shell: "make"
     register: result
     args:
       executable: /bin/bash
@@ -598,7 +597,6 @@
 
   - name: install bettercap v2.32.1
     shell: "export GOPATH=$HOME/go && export PATH=/usr/local/go/bin:$PATH:$GOPATH/bin && make install"
-    shell: "make install"
     register: result
     args:
       executable: /bin/bash
