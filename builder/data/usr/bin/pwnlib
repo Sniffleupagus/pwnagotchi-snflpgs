@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 
 # preload the v1.9 libpcap for injection packets that seem to be broken in 1.10
-if [ $(uname -m) = "armv6l" ]; then
-    export LD_PRELOAD=/usr/local/lib/libpcap.so.1
-    export LD_LIBRARY_PATH=/usr/local/lib
-fi
+export LD_PRELOAD=/usr/local/lib/libpcap.so.1
+export LD_LIBRARY_PATH=/usr/local/lib
 
 # well ... it blinks the led
 blink_led() {
