@@ -21,8 +21,23 @@ class Led(plugins.Plugin):
 
     # called when the plugin is loaded
     def on_loaded(self):
-        self._led_file = "/sys/class/leds/led%d/brightness" % self.options['led']
-        self._delay = int(self.options['delay'])
+        if "led" not in self.options:
+            self.options['led'] = "/sys/class/gpio/ACT/brightness"
+        
+        if os.path.isfile("%s" % self.options['led']):
+            self._led_file = self.options['led']
+        elif "gpio" in self.options['led'].lower():
+            pin = self.options['led'][4:]
+            gpio_pin =  "/sys/class/gpio/gpio%s" % pin
+            os.system('echo %s > /sys/class/gpio/export' % pin)
+            if os.path.isfile('%s/direction'):
+                self.logger.info("Created %s" % gpio_pin)
+                os.system('echo out > %s/direction' % gpio_pin)
+                self._led_file = "/sys/class/gpio/gpio%s/value" % pin
+        else:
+            self._led_file = "/sys/class/leds/led%d/brightness" % int(self.options['led'])
+
+        self._delay = int(self.options['delay']) if 'delay' in self.options else 200
 
         logging.info("[led] plugin loaded for %s" % self._led_file)
         self._on_event('loaded')
