@@ -218,6 +218,6 @@ class AutoUpdate(plugins.Plugin):
                     pwnagotchi.reboot()
 
             except Exception as e:
-                logging.error("[update] %s" % e)
+                logging.error("[update] %s" % repr(e))
 
             display.update(force=True, new_data={'status': prev_status if prev_status is not None else ''})
