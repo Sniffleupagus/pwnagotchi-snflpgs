@@ -14,6 +14,16 @@
   "provisioners": [
     {
       "type": "file",
+        "source": "../../staging/go_pkgs.tgz",
+        "destination": "/root/go_pkgs.tgz"
+    },
+    {
+      "type": "file",
+        "source": "../../staging/bin/",
+        "destination": "/usr/local/bin/"
+    },
+    {
+      "type": "file",
         "source": "../builder/data/usr/bin/pwnlib",
         "destination": "/usr/bin/pwnlib"
     },
@@ -111,7 +121,7 @@
 	"apt-mark hold raspberrypi-kernel raspberrypi-kernel-headers",
         "apt-get -y --allow-releaseinfo-change update",
         "apt-get -y upgrade",
-        "apt-get install -y ansible git"
+        "apt-get install -y ansible"
       ]
     },
     {
@@ -121,6 +131,24 @@
         "--extra-vars \"ansible_python_interpreter=/usr/bin/python3\"", "-v"
       ],
       "command": "ANSIBLE_FORCE_COLOR=1 PYTHONUNBUFFERED=1 PWN_VERSION={{user `pwn_version`}} PWN_HOSTNAME={{user `pwn_hostname`}} ansible-playbook"
+    },
+    {
+	"type": "file",
+	"source": "/usr/local/bin/pwngrid",
+	"destination": "../../staging/incoming/pwngrid",
+	"direction": "download"
+    },
+    {
+	"type": "file",
+	"source": "/usr/local/bin/bettercap",
+	"destination": "../../staging/incoming/bettercap",
+	"direction": "download"
+    },
+    {
+        "type": "shell-local",
+	"inline": [
+	    "chown -R ../../staging"
+	]
     }
   ]
 }
