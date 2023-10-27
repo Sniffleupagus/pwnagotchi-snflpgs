@@ -28,7 +28,7 @@ ifneq (,$(UNSHARE))
 UNSHARE := $(UNSHARE) --uts
 endif
 
-all: clean install image
+all: clean image
 
 langs:
 	@for lang in pwnagotchi/locale/*/; do\
@@ -52,10 +52,21 @@ $(SDIST): setup.py pwnagotchi
 # Building the image requires packer, but don't rebuild the image just because packer updated.
 $(PWN_RELEASE).img: | $(PACKER)
 
+base_image: ../base_raspios-bullseye-armhf.img.xz
+
+../base_raspios-bullseye-armhf.img.xz: ../base_raspios-bullseye-armhf.img
+	cd ..
+	@mv base_raspios-bullseye-armhf.img.xz base_raspios-bullseye-armhf.img.xz~
+	xz -k base_raspios-bullseye-armhf.img
+
+../base_raspios-bullseye-armhf.img: builder/base_image.json
+	$(PACKER) plugins install github.com/solo-io/arm-image
+	cd builder && $(UNSHARE) $(PACKER) build -on-error=abort -var "pwn_hostname=$(PWN_HOSTNAME)" -var "pwn_version=$(PWN_VERSION)" -only=base base_image.json
+
 # If the packer or ansible files are updated, rebuild the image.
 $(PWN_RELEASE).img: $(SDIST) builder/pwnagotchi.json builder/pwnagotchi.yml $(shell find builder/data -type f)
 	$(PACKER) plugins install github.com/solo-io/arm-image
-	cd builder && $(UNSHARE) $(PACKER) build -on-error=abort -var "pwn_hostname=$(PWN_HOSTNAME)" -var "pwn_version=$(PWN_VERSION)" pwnagotchi.json
+	cd builder && $(UNSHARE) $(PACKER) build -on-error=abort -var "pwn_hostname=$(PWN_HOSTNAME)" -var "pwn_version=$(PWN_VERSION)" -only=pwnagotchi pwnagotchi.json.pkr.hcl
 
 # If any of these files are updated, rebuild the checksums.
 $(PWN_RELEASE).sha256: $(PWN_RELEASE).img

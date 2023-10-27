@@ -3,20 +3,15 @@
     {
       "name": "pwnagotchi",
       "type": "arm-image",
-      "iso_url": "https://downloads.raspberrypi.org/raspios_lite_armhf/images/raspios_lite_armhf-2023-05-03/2023-05-03-raspios-bullseye-armhf-lite.img.xz",
-      "iso_checksum": "file:https://downloads.raspberrypi.org/raspios_lite_armhf/images/raspios_lite_armhf-2023-05-03/2023-05-03-raspios-bullseye-armhf-lite.img.xz.sha256",
+      "iso_url": "/root/base_raspios-bullseye-armhf.img.xz",
+      "iso_checksum": "none",
       "target_image_size": 9368709120,
       "qemu_binary": "qemu-arm-static",
-      "qemu_args": [ "-cpu", "arm1176", "-r", "6.1.21+" ],
-      "output_filename": "../../pwnagotchi-{{user `pwn_version`}}-armhf.img"
+      "qemu_args": [ "-cpu", "arm1176" ],
+      "output_filename": "/root/pwnagotchi-{{user `pwn_version`}}-armhf.img"
     }
   ],
   "provisioners": [
-    {
-      "type": "file",
-        "source": "../../staging/go_pkgs.tgz",
-        "destination": "/root/go_pkgs.tgz"
-    },
     {
       "type": "file",
         "source": "../../staging/bin/",
@@ -24,85 +19,52 @@
     },
     {
       "type": "file",
-        "source": "../builder/data/usr/bin/pwnlib",
-        "destination": "/usr/bin/pwnlib"
+        "source": "../../staging/",
+        "destination": "/root/staging/"
     },
     {
       "type": "file",
-      "source": "../builder/data/usr/bin/bettercap-launcher",
-      "destination": "/usr/bin/bettercap-launcher"
+        "sources": [
+	    "../builder/data/usr/bin/pwnlib",
+	    "../builder/data/usr/bin/bettercap-launcher",
+	    "../builder/data/usr/bin/pwnagotchi-launcher",
+	    "../builder/data/usr/bin/pwngrid-launcher",
+	    "../builder/data/usr/bin/monstop",
+	    "../builder/data/usr/bin/monstart",
+	    "../builder/data/usr/bin/hdmion",
+	    "../builder/data/usr/bin/hdmioff"
+	],
+        "destination": "/usr/bin/"
     },
+
     {
       "type": "file",
-      "source": "../builder/data/usr/bin/pwnagotchi-launcher",
-      "destination": "/usr/bin/pwnagotchi-launcher"
+	"sources": [
+	    "../builder/data/etc/network/interfaces.d/lo-cfg",
+	    "../builder/data/etc/network/interfaces.d/wlan0-cfg",
+	    "../builder/data/etc/network/interfaces.d/usb0-cfg",
+	    "../builder/data/etc/network/interfaces.d/eth0-cfg"
+	],
+      "destination": "/etc/network/interfaces.d/"
     },
+
     {
       "type": "file",
-      "source": "../builder/data/usr/bin/pwngrid-launcher",
-      "destination": "/usr/bin/pwngrid-launcher"
+	"sources": [
+	    "../builder/data/etc/systemd/system/pwngrid-peer.service",
+	    "../builder/data/etc/systemd/system/pwnagotchi.service",
+	    "../builder/data/etc/systemd/system/bettercap.service"
+	],
+	"destination": "/etc/systemd/system/"
     },
-    {
-      "type": "file",
-      "source": "../builder/data/usr/bin/monstop",
-      "destination": "/usr/bin/monstop"
-    },
-    {
-      "type": "file",
-      "source": "../builder/data/usr/bin/monstart",
-      "destination": "/usr/bin/monstart"
-    },
-    {
-      "type": "file",
-      "source": "../builder/data/usr/bin/hdmion",
-      "destination": "/usr/bin/hdmion"
-    },
-    {
-      "type": "file",
-      "source": "../builder/data/usr/bin/hdmioff",
-      "destination": "/usr/bin/hdmioff"
-    },
-    {
-      "type": "file",
-      "source": "../builder/data/etc/network/interfaces.d/lo-cfg",
-      "destination": "/etc/network/interfaces.d/lo-cfg"
-    },
-    {
-      "type": "file",
-      "source": "../builder/data/etc/network/interfaces.d/wlan0-cfg",
-      "destination": "/etc/network/interfaces.d/wlan0-cfg"
-    },
-    {
-      "type": "file",
-      "source": "../builder/data/etc/network/interfaces.d/usb0-cfg",
-      "destination": "/etc/network/interfaces.d/usb0-cfg"
-    },
-    {
-      "type": "file",
-      "source": "../builder/data/etc/network/interfaces.d/eth0-cfg",
-      "destination": "/etc/network/interfaces.d/eth0-cfg"
-    },
-    {
-      "type": "file",
-      "source": "../builder/data/etc/systemd/system/pwngrid-peer.service",
-      "destination": "/etc/systemd/system/pwngrid-peer.service"
-    },
-    {
-      "type": "file",
-      "source": "../builder/data/etc/systemd/system/pwnagotchi.service",
-      "destination": "/etc/systemd/system/pwnagotchi.service"
-    },
-    {
-      "type": "file",
-      "source": "../builder/data/etc/systemd/system/bettercap.service",
-      "destination": "/etc/systemd/system/bettercap.service"
-    },
+
     {
       "type": "shell",
       "inline": [
         "chmod +x /usr/bin/*"
       ]
     },
+
     {
       "type": "file",
       "source": "../builder/data/etc/update-motd.d/01-motd",
@@ -117,38 +79,51 @@
     {
       "type": "shell",
       "inline": [
-        "apt-get install -y raspberrypi-kernel-headers",
-	"apt-mark hold raspberrypi-kernel raspberrypi-kernel-headers",
+	"echo APT UPDATE",
         "apt-get -y --allow-releaseinfo-change update",
+	"echo APT UPGRADE",
         "apt-get -y upgrade",
-        "apt-get install -y ansible"
+	"apt install -y ansible"
       ]
     },
     {
       "type": "ansible-local",
+      "playbook_dir": "../builder/",
       "playbook_file": "../builder/pwnagotchi.yml",
       "extra_arguments": [
-        "--extra-vars \"ansible_python_interpreter=/usr/bin/python3\"", "-v"
+        "--extra-vars \"ansible_python_interpreter=/usr/bin/python3\"", "-vvv"
       ],
       "command": "ANSIBLE_FORCE_COLOR=1 PYTHONUNBUFFERED=1 PWN_VERSION={{user `pwn_version`}} PWN_HOSTNAME={{user `pwn_hostname`}} ansible-playbook"
     },
+
     {
-	"type": "file",
-	"source": "/usr/local/bin/pwngrid",
-	"destination": "../../staging/incoming/pwngrid",
+      "type": "shell",
+      "inline": [ "echo Directory Download not implemented, so doing it the old fashioned way",
+		  "echo Creating archive of /root/staging",
+		  "tar -C /root/staging -cvzf /root/staging.tgz ." ]
+    },
+    {
+      "type": "file",
+        "source": "/root/staging.tgz",
+        "destination": "../../",
 	"direction": "download"
     },
     {
-	"type": "file",
-	"source": "/usr/local/bin/bettercap",
-	"destination": "../../staging/incoming/bettercap",
-	"direction": "download"
+      "type": "shell",
+      "inline": [
+	"echo Removing staging directory from image",
+        "rm -rf /root/staging /root/staging.tgz"
+      ]
     },
     {
-        "type": "shell-local",
-	"inline": [
-	    "chown -R ../../staging"
-	]
+      "type": "shell-local",
+      "inline": [
+	"echo Unpacking staged artifacts to 'incoming' directory",
+	"mkdir -p ../../incoming",
+	"tar -C ../../incoming/ --overwrite -xvzf ../../staging.tgz",
+	"rm ../../staging.tgz",
+	"chmod -R a+rwX ../../incoming"
+      ]
     }
   ]
 }

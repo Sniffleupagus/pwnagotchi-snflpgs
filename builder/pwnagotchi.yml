@@ -4,6 +4,40 @@
   gather_facts: true
   become: true
   vars:
+    boards:
+      - {
+        kernel: "6.1.21+",
+        name: "PiZeroW",
+        firmware: "brcmfmac43430-sdio.bin",
+        patch: "bcm43430a1/7_45_41_46",
+        cpu: arm1176,
+        arch_flags: "-arch armv6l"
+        }
+      - {
+        kernel: "6.1.21-v7+",
+        name: "PiZero2W",
+        firmware: "brcmfmac43436-sdio.bin",
+        patch: "bcm43436b0/9_88_4_65",
+        cpu: cortex-a53,
+        arch_flags: "-arch armv7l"
+        }
+      - {
+        kernel: "6.1.21-v7l+",
+        name: "Pi4b_32",
+        firmware: "brcmfmac43455-sdio.bin",
+        patch: "bcm43455c0/7_45_206",
+        cpu: cortex-a72,
+        arch_flags: "-arch armv7l"
+        }
+      - {
+        kernel: "6.1.21-v8+",
+        name: "Pi4b_64",
+        firmware: "brcmfmac43455-sdio.bin",
+        patch: "bcm43455c0/7_45_206",
+        cpu: cortex-a72,
+        arch_flags: "-arch aarch64"
+        }
+    staging: "/root/staging"
     kernel:
       min: "6.1"
       full: "6.1.21+"
@@ -31,7 +65,7 @@
         - "#### touchscreen on waveshare touch e-paper"
         - "#dtoverlay=goodix,interrupt=27,reset=22"
         - "#### for PWM backlighting on pimoroni displayhatmini"
-        - "#dtoverlay=pwm-2chan,pin=12,func=4,pin2=13,func2=4"
+        - "dtoverlay=pwm-2chan,pin=12,func=4,pin2=13,func2=4"
       modules:
         - "i2c-dev"
     services:
@@ -57,8 +91,10 @@
       pwngrid:
         url: "https://github.com/jayofelony/pwngrid.git"
       torch:
+        wheel: "torch-2.1.0a0+gitunknown-cp39-cp39-linux_armv6l.whl"
         url: "https://github.com/Sniffleupagus/Torch4Pizero/releases/download/v1.0.0/torch-2.1.0a0+gitunknown-cp39-cp39-linux_armv6l.whl"
       torchvision:
+        wheel: "torchvision-0.16.0a0-cp39-cp39-linux_armv6l.whl"
         url: "https://github.com/Sniffleupagus/Torch4Pizero/releases/download/v1.0.0/torchvision-0.16.0a0-cp39-cp39-linux_armv6l.whl"
 
       apt:
@@ -175,22 +211,26 @@
     ARCHFLAGS: -arch armv6l
     QEMU_UNAME: "{{ kernel.full }}"
     QEMU_CPU: arm1176
-    GOARCH: arm
-    GOPROXY: http://localhost:8080
-    GOSUMDB: http://localhost:8080
 
   tasks:
+
   - name: Create pi user, default password pwny1234
     copy:
       dest: /boot/userconf
       content: |
         pi:$6$3jNr0GA9KIyt4hmM$efeVIopdMQ8DGgEPCWWlbx3mJJNAYci1lEXGdlky0xPyjqwKNbwTL5SrCcpb4144C4IvzWjn7Iv.QjqmU7iyT/
+    tags:
+      - base
+      - config
 
   - name: check uname -m just to be sure
     shell: "uname -m && uname -a && ls -l"
     args:
       executable: /bin/bash
       chdir: /usr/local/src
+    tags:
+      - base
+      - config
 
   - name: change hostname
     lineinfile:
@@ -200,6 +240,9 @@
       state: present
     when: lookup('file', '/etc/hostname') == "raspberrypi"
     register: hostname
+    tags:
+      - base
+      - config
 
   - name: add hostname to /etc/hosts
     lineinfile:
@@ -208,77 +251,87 @@
       line: "127.0.1.1\t{{pwnagotchi.hostname}}"
       state: present
     when: hostname.changed
+    tags:
+      - base
+      - config
 
   - name: disable sap plugin for bluetooth.service
     lineinfile:
       dest: /lib/systemd/system/bluetooth.service
-      regexp: '^ExecStart=/usr/lib/bluetooth/bluetoothd$'
+      regexp: '^ExecStart=/usr/lib(exec)?/bluetooth/bluetoothd$'
       line: 'ExecStart=/usr/lib/bluetooth/bluetoothd --noplugin=sap'
       state: present
+    tags:
+      - config
+      - base
 
   - name: configure dphys-swapfile
     lineinfile:
       path: /etc/dphys-swapfile
       regexp: "^CONF_SWAPSIZE=.*$"
       line: "CONF_SWAPSIZE=2048"
+    tags:
+      - config
+      - base
 
   - name: Create custom plugin directory
     file:
       path: '{{ pwnagotchi.custom_plugin_dir }}'
       state: directory
-
-  - name: get available kernel versions for building nexmon
-    ansible.builtin.find:
-      path: /lib/modules
-      recurse: false
-      file_type: "directory"
-    register: kernel_dirs
-
-  - name: Loop over these kernel_dirs
-    shell: "echo Build nexmon for $KERNEL_VERSION eventually"
-    args:
-      executable: /bin/bash
-      chdir: /lib/modules
-    environment:
-      KERNEL_VERSION: "{{ item.path | basename }}"
-    loop: "{{kernel_dirs.files }}"
-    loop_control:
-      label: "{{ item.path | basename }}"
-    ignore_errors: true
+    tags:
+      - pwnagotchi
+      - build
 
   - name: update apt package cache
     apt:
       update_cache: yes
+    tags:
+      - base
+      - pwnagotchi
+      - update
 
   - name: install packages
     apt:
       name: "{{ packages.apt.install }}"
       state: present
+    tags:
+      - base
+      - pwnagotchi
 
   - name: update pip3, setuptools, wheel
     shell: "python3 -m pip install --upgrade pip setuptools wheel"
     args:
       executable: /bin/bash
       chdir: /usr/local/src
+    tags:
+      - python
+      - base
+      - pwnagotchi
+      - build
 
   ###########################################
   #
   # Torch, Torchvision and Stable Baselines 3
   #
   ###########################################
+  # maybe merge this with the pwnagotch wheel below
 
-  - name: install torch, torchvision and stable-baselines-3
-    pip:
-      name:
-        - "{{ packages.torch.url }}"
-        - "{{ packages.torchvision.url }}"
-        - "stable-baselines3==1.8.0"
-    environment:
-      QEMU_CPU: arm1176
-    retries: 7
-    delay: 20
-    register: torch_installed
-    until: torch_installed is not failed
+  # - name: install torch, torchvision and stable-baselines-3
+  #   pip:
+  #     name:
+  #       - "{{ packages.torch.url }}"
+  #       - "{{ packages.torchvision.url }}"
+  #       - "stable-baselines3==1.8.0"
+  #   environment:
+  #     QEMU_CPU: arm1176
+  #   retries: 7
+  #   delay: 20
+  #   register: torch_installed
+  #   until: torch_installed is not failed
+  #   tags:
+  #     - python
+  #     - build
+  #     - prep
 
   ###########################################
   #
@@ -292,141 +345,34 @@
       repo: 'https://github.com/the-tcpdump-group/libpcap.git'
       dest: /usr/local/src/libpcap
       version: libpcap-1.9
+    tags:
+      - base
 
   - name: build and install libpcap into /usr/local/lib
     shell: "./configure && make && make install"
     args:
       executable: /bin/bash
       chdir: /usr/local/src/libpcap
+    tags:
+      - base
 
   - name: remove libpcap build folder
     file:
       state: absent
       path: /usr/local/src/libpcap
+    tags:
+      - base
 
   ###############################################################
   # Install nexmon to fix wireless scanning (takes 2.5G of space)
   ###############################################################
-  - name: clone nexmon repository
-    git:
-      repo: https://github.com/DrSchottky/nexmon.git
-      dest: /usr/local/src/nexmon
-    register: nexmongit
 
-  - name: make firmware
-    shell: "source ./setup_env.sh && make"
-    args:
-      executable: /bin/bash
-      chdir: /usr/local/src/nexmon/
-
-  # the firmware prep just needs to be done once, but the kernel modules
-  # below need to be build for each kernel version in /lib/modules
-
-  #######################################
-  # nexmon firmware for pi3b, 4b wireless
-  #######################################
-  - name: make firmware patch (bcm43455c0)
-    shell: "source ./setup_env.sh && cd patches/bcm43455c0/7_45_206/nexmon/ && make"
-    args:
-      executable: /bin/bash
-      chdir: /usr/local/src/nexmon/
-    environment:
-      QEMU_UNAME: "{{ kernel.full_4b }}"
-      QEMU_CPU: any
-      ARCHFLAGS: "-arch armv7l"
-
-  - name: install new firmware (bcm43455c0)
-    copy:
-      src: /usr/local/src/nexmon/patches/bcm43455c0/7_45_206/nexmon/brcmfmac43455-sdio.bin
-      dest: /usr/lib/firmware/brcm/brcmfmac43455-sdio.bin
-      follow: true
-
-  # install kernel driver for v8+ kernel for pi 4b
-  - name: backup original V8+ driver, compressed, if there
-    command: "mv brcmfmac.ko.xz brcmfmac.ko.xz.orig"
-    args:
-      chdir: /usr/lib/modules/{{ kernel.full_4b }}/kernel/drivers/net/wireless/broadcom/brcm80211/brcmfmac
-    register: brcmfmac_ko_xz
-    ignore_errors: true
-
-  - name: backup original V8+ driver, uncompressed, if there
-    command: "mv brcmfmac.ko brcmfmac.ko.orig"
-    args:
-      chdir: /usr/lib/modules/{{ kernel.full_4b }}/kernel/drivers/net/wireless/broadcom/brcm80211/brcmfmac
-    ignore_errors: true
-
-  - name: copy modified driver
-    copy:
-      src: "/usr/local/src/nexmon/patches/driver/brcmfmac_{{ kernel.min }}.y-nexmon/brcmfmac.ko"
-      dest: "/usr/lib/modules/{{ kernel.full_4b }}/kernel/drivers/net/wireless/broadcom/brcm80211/brcmfmac/brcmfmac.ko"
-      follow: true
-
-  - name: update module dependencies
-    command: "/sbin/depmod -a {{ kernel.full_4b }}"
-
-  ##############################    
-  # nexmon for pizero2W wireless
-  ##############################
-  - name: make firmware patch (bcm43436b0)
-    shell: "source ./setup_env.sh && cd patches/bcm43436b0/9_88_4_65/nexmon/ && make clean && make"
-    args:
-      executable: /bin/bash
-      chdir: /usr/local/src/nexmon/
-    environment:
-      QEMU_UNAME: "{{ kernel.full_2w }}"
-      QEMU_CPU: any
-      ARCHFLAGS: -arch armv7l
-
-  - name: install new firmware (bcm43436b0)
-    copy:
-      src: /usr/local/src/nexmon/patches/bcm43436b0/9_88_4_65/nexmon/brcmfmac43436-sdio.bin
-      dest: /usr/lib/firmware/brcm/brcmfmac43436-sdio.bin
-      follow: true
-
-  # install kernel driver for v7+ kernel for pi 2w
-  - name: backup original v7+ driver, compressed, if there
-    command: "mv brcmfmac.ko.xz brcmfmac.ko.xz.orig"
-    args:
-      chdir: /usr/lib/modules/{{ kernel.full_2w }}/kernel/drivers/net/wireless/broadcom/brcm80211/brcmfmac
-    register: brcmfmac_ko_xz_backup
-    ignore_errors: true
-
-  - name: backup original V8+ driver, uncompressed, if there
-    command: "mv brcmfmac.ko brcmfmac.ko.orig"
-    args:
-      chdir: /usr/lib/modules/{{ kernel.full_2w }}/kernel/drivers/net/wireless/broadcom/brcm80211/brcmfmac
-    ignore_errors: true
-
-  - name: copy modified driver
-    copy:
-      src: "/usr/local/src/nexmon/patches/driver/brcmfmac_{{ kernel.min }}.y-nexmon/brcmfmac.ko"
-      dest: "/usr/lib/modules/{{ kernel.full_2w }}/kernel/drivers/net/wireless/broadcom/brcm80211/brcmfmac/brcmfmac.ko"
-      follow: true
-
-  - name: compress new driver to .xz
-    command: "xz --keep brcmfmac.ko"
-    args:
-      chdir: /usr/lib/modules/{{ kernel.full_2w }}/kernel/drivers/net/wireless/broadcom/brcm80211/brcmfmac
-    register: brcmfmac_ko_xz
-    ignore_errors: true
-      
-  - name: update module dependencies
-    command: "/sbin/depmod -a {{ kernel.full_2w }}"
-
-  #############################
-  # nexmon for pizeroW wireless
-  #############################
-  - name: make firmware patch (bcm43430a1)
-    shell: "source ./setup_env.sh && cd patches/bcm43430a1/7_45_41_46/nexmon/ && make clean && make"
-    args:
-      executable: /bin/bash
-      chdir: /usr/local/src/nexmon/
-
-  - name: install new firmware (bcm43430a1)
-    copy:
-      src: /usr/local/src/nexmon/patches/bcm43430a1/7_45_41_46/nexmon/brcmfmac43430-sdio.bin
-      dest: /usr/lib/firmware/brcm/brcmfmac43430-sdio.bin
-      follow: true
+  # Install nexmon for all boards
+  - name: build and install nexmon as needed
+    include_tasks: nexmon.yml
+    loop: "{{ boards }}"
+    tags:
+      - pwnagotchi
 
   # some pizero2w have the pizeroW wifi chip
   - name: copy 43430-sdio as 43436s-sdio for the special 43430/1 /2
@@ -435,62 +381,76 @@
       dest: /usr/lib/firmware/brcm/brcmfmac43436s-sdio.bin
       follow: true
 
-  - name: backup original driver, compressed, if there
-    command: "mv brcmfmac.ko.xz brcmfmac.ko.xz.orig"
-    args:
-      chdir: /usr/lib/modules/{{ kernel.full }}/kernel/drivers/net/wireless/broadcom/brcm80211/brcmfmac
-    register: brcmfmac_ko_xz
-    ignore_errors: true
+  # check for presence of /usr/local/bin/nexutil and skip this if they do
+  - name: check for /usr/local/bin/nexutil
+    stat: path=/usr/local/bin/nexutil
+    register: nexutil
 
-  - name: backup original driver, uncompressed, if there
-    command: "mv brcmfmac.ko brcmfmac.ko.orig"
-    args:
-      chdir: /usr/lib/modules/{{ kernel.full }}/kernel/drivers/net/wireless/broadcom/brcm80211/brcmfmac
-    ignore_errors: true
+    # nexutil command line utility
+  - name: build and install nexutil
+    when: not nexutil.stat.exists
+    block:
+      - name: make nexutil
+        shell: "source ./setup_env.sh && cd utilities/nexutil && make"
+        args:
+          executable: /bin/bash
+          chdir: /usr/local/src/nexmon/
 
-  - name: copy modified driver
-    copy:
-      src: "/usr/local/src/nexmon/patches/driver/brcmfmac_{{ kernel.min }}.y-nexmon/brcmfmac.ko"
-      dest: "/usr/lib/modules/{{ kernel.full }}/kernel/drivers/net/wireless/broadcom/brcm80211/brcmfmac/brcmfmac.ko"
-      follow: true
+      - name: install nexutil
+        copy:
+          src: /usr/local/src/nexmon/utilities/nexutil/nexutil
+          dest: /usr/local/bin/
+          mode: '755'
+          follow: true
 
-  - name: update module dependencies
-    command: "/sbin/depmod -a {{ kernel.full }}"
+      - name: make bin staging dir
+        file:
+          state: directory
+          path: "{{ staging }}/bin"
 
-  # nexutil command line utility
-  - name: make nexutil
-    shell: "source ./setup_env.sh && cd utilities/nexutil && make"
-    args:
-      executable: /bin/bash
-      chdir: /usr/local/src/nexmon/
+      - name: copy nexutil to staging directory
+        copy:
+          src: /usr/local/bin/nexutil
+          dest: "{{ staging }}/bin/"
 
-  - name: install nexutil
-    copy:
-      src: /usr/local/src/nexmon/utilities/nexutil/nexutil
-      dest: /usr/local/bin
-      mode: '755'
-      follow: true
-
-  - name: Delete the 43430 firmware blob to avoid it crashing
+  # delete blob files that make nexmon sad
+  - name: Delete the firmware blob files to avoid some nexmon crashing
     file:
       state: absent
-      path: /usr/lib/firmware/brcm/brcmfmac43430-sdio.clm_blob
-
-  - name: Delete the RPiZW firmware blob to avoid it crashing
-    file:
-      state: absent
-      path: /usr/lib/firmware/brcm/brcmfmac43430-sdio.raspberrypi,model-zero-w.clm_blob
-
-  - name: Delete the RPi3 firmware blob to avoid it crashing
-    file:
-      state: absent
-      path: /usr/lib/firmware/brcm/brcmfmac43430-sdio.raspberrypi,3-model-b.clm_blob
+      path: '{{ item }}'
+    loop:
+      - /usr/lib/firmware/brcm/brcmfmac43430-sdio.clm_blob
+      - /usr/lib/firmware/brcm/brcmfmac43430-sdio.raspberrypi,model-zero-w.clm_blob
+      - /usr/lib/firmware/brcm/brcmfmac43430b0-sdio.raspberrypi,model-zero-2-w.clm_blob
+      - /usr/lib/firmware/brcm/brcmfmac43436-sdio.raspberrypi,model-zero-2-w.clm_blob
+      - /usr/lib/firmware/brcm/brcmfmac43430-sdio.raspberrypi,3-model-b.clm_blob
 
   # To shrink the final image, remove the nexmon directory (takes 2.5G of space) post build and installation
-  # - name: Delete nexmon content & directory
-  #   file:
-  #     state: absent
-  #     path: /usr/local/src/nexmon/
+  - name: Delete nexmon content & directory
+    file:
+      state: absent
+      path: /usr/local/src/nexmon/
+
+  - name: make wheel staging dir
+    file:
+      state: directory
+      path: "{{ staging }}/wheels"
+
+  - name: Download torch wheel
+    ansible.builtin.uri:
+      url: "{{ packages.torch.url }}"
+      dest: "{{ staging }}/wheels"
+      follow_redirects: safe
+      creates: "{{ staging }}/wheels/{{ packages.torch.url | basename }}"
+    register: torch_wheel
+
+  - name: Download torchvision wheel
+    ansible.builtin.uri:
+      url: "{{ packages.torchvision.url }}"
+      dest: "{{ staging }}/wheels"
+      follow_redirects: safe
+      creates: "{{ staging }}/wheels/{{ packages.torchvision.url | basename }}"
+    register: torchvision_wheel
 
   - name: clone pwnagotchi repository
     git:
@@ -506,14 +466,21 @@
 
   - name: install pwnagotchi wheel and dependencies
     pip:
-      name: "{{ lookup('fileglob', '/usr/local/src/pwnagotchi/dist/pwnagotchi*.whl') }}"
+      name:
+        - "{{ lookup('fileglob', '/usr/local/src/pwnagotchi/dist/pwnagotchi*.whl') }}"
+        - "{{ staging }}/wheels/{{ packages.torch.url | basename }}"
+        - "{{ staging }}/wheels/{{ packages.torchvision.url | basename }}"
+        - "stable-baselines3==1.8.0"
       extra_args: "--no-cache-dir"
+    environment:
+      QEMU_CPU: arm1176
+      QEMU_UNAME: "{{ kernel.full }}"
     when: (pwnagotchigit.changed) or (pip_packages['pwnagotchi'] is undefined) or (pip_packages['pwnagotchi'] != pwnagotchi_version)
 
-  - name: remove pwnagotchi folder
-    file:
-      state: absent
-      path: /usr/local/src/pwnagotchi
+  - name: copy pwnagotchi wheel to staging dir
+    ansible.builtin.copy:
+      src: "{{ lookup('fileglob', '/usr/local/src/pwnagotchi/dist/pwnagotchi*.whl') }}"
+      dest: "{{ staging }}/wheels"
 
   - name: create /usr/local/share/pwnagotchi/ folder
     file:
@@ -527,143 +494,43 @@
 
   ##########################################
   #
-  # Golang, pwngrid, bettercap
+  # pwngrid, bettercap
   #
   ##########################################
 
-  # check for presence of /usr/local/bin/{bettercap,pwngrid} and skip this if they do
   - name: check for /usr/local/bin/bettercap
     stat: path=/usr/local/bin/bettercap
     register: bettercap
+
+  - block:
+      - name: install bettercap if missing
+        when: not bettercap.stat.exists
+        include_tasks: build_install_gopkg.yml
+        vars:
+          item:
+            name: bettercap
+            url: '{{ packages.bettercap.url }}'
+    environment:
+      GOPATH: "{{ lookup('env', 'HOME') }}/go"
+      PATH: "/usr/local/go/bin:{{ lookup('env', 'PATH') }}"
+      GOSUMDB: off
 
   - name: check for /usr/local/bin/pwngrid
     stat: path=/usr/local/bin/pwngrid
     register: pwngrid
 
-  - name: Download and install golang
-    when: (not bettercap.stat.exists) or (not pwngrid.stat.exists)
-    block:
-      - name: Install go from repo
-        unarchive:
-          src: https://go.dev/dl/go1.21.1.linux-armv6l.tar.gz
-          dest: /usr/local
-          remote_src: yes
-        register: golang
-
-      - name: Update .bashrc for go
-        blockinfile:
-          dest: /home/pi/.bashrc
-          state: present
-          block: |
-            export GOPATH=$HOME/go
-            export PATH=/usr/local/go/bin:$PATH:$GOPATH/bin:$HOME/bin
-        when: golang.changed
-
-      - name: Install pre-collected go packages because downloading from golang properly causes timeouts
-        unarchive:
-          src: /root/go_pkgs.tgz
-          dest: /root
-          remote_src: yes
-        register: golang_pre
-        ignore_errors: true
-
-  - name: Download, build and install pwngrid
-    when: not pwngrid.stat.exists
-    block:
-      - name: download pwngrid 1.10.4
-        git:
-          repo: "{{ packages.pwngrid.url }}"
-          dest: /usr/local/src/pwngrid
-        register: pwngrid_dl
-
-      - name: go mod tidy for pwngrid
-        shell: "go mod tidy -x -v"
-        register: result
-        retries: 20
-        delay: 180
-        args:
-          executable: /bin/bash
-          chdir: /usr/local/src/pwngrid
-        when: pwngrid.changed
-        until: result is not failed
-        ignore_errors: true
-        environment:
-          GOHOME: "{{ lookup('env', 'HOME') }}/go"
-          PATH: "/usr/local/go/bin:{{ lookup('env', 'PATH') }}"
-          GOSUMDB: off
-
-      - name: build pwngrid 1.10.4
-        shell: "export GOPATH=$HOME/go && export PATH=/usr/local/go/bin:$PATH:$GOPATH/bin && make"
-        register: result
-        args:
-          executable: /bin/bash
-          chdir: /usr/local/src/pwngrid
-        environment:
-          GOPROXY: "http://localhost:8080"
-          GOSUMDB: "http://localhost:8080"
-          GOARCH: arm
-
-      - name: install pwngrid 1.10.4
-        shell: "export GOPATH=$HOME/go && export PATH=/usr/local/go/bin:$PATH:$GOPATH/bin && make install"
-        register: result
-        args:
-          executable: /bin/bash
-          chdir: /usr/local/src/pwngrid
-        environment:
-          GOPROXY: "http://localhost:8080,direct"
-          GOSUMDB: "http://localhost:8080"
-          GOARCH: arm
-
-      - name: remove pwngrid folder
-        file:
-          state: absent
-          path: /usr/local/src/pwngrid
-
-  - name: Download, build and install bettercap if binary does not exist
-    when: not bettercap.stat.exists
-    block:
-      - name: download bettercap v2.32.1
-        git:
-          repo: https://github.com/jayofelony/bettercap.git
-          dest: /usr/local/src/bettercap
-        register: bettercap-download
-
-      - name: go mod tidy for bettercap v2.32.1
-        shell: "export GOPATH=$HOME/go && export PATH=/usr/local/go/bin:$PATH:$GOPATH/bin && go mod tidy"
-        register: result
-        retries: 20
-        delay: 300
-        args:
-          executable: /bin/bash
-          chdir: /usr/local/src/bettercap
-        until: result is not failed
-        ignore_errors: true
-        environment:
-          GOPROXY: "http://localhost:8080/,direct"
-          GOSUMDB: "http://localhost:8080/"
-
-      - name: build bettercap v2.32.1
-        shell: "export GOPATH=$HOME/go && export PATH=/usr/local/go/bin:$PATH:$GOPATH/bin && make"
-        register: result
-        args:
-          executable: /bin/bash
-          chdir: /usr/local/src/bettercap
-        environment:
-          GOPROXY: "http://127.0.0.1:8080,https://proxy.golang.org,direct"
-
-      - name: install bettercap v2.32.1
-        shell: "export GOPATH=$HOME/go && export PATH=/usr/local/go/bin:$PATH:$GOPATH/bin && make install"
-        register: result
-        args:
-          executable: /bin/bash
-          chdir: /usr/local/src/bettercap
-        environment:
-          GOPROXY: "http://localhost=127.0.0.1:8080,direct"
-
-      - name: remove bettercap folder
-        file:
-          state: absent
-          path: /usr/local/src/bettercap
+  - block:
+      - name: install pwngrid if missing
+        when: not pwngrid.stat.exists
+        include_tasks: build_install_gopkg.yml
+        vars:
+          item:
+            name: pwngrid
+            url: '{{ packages.pwngrid.url }}'
+    environment:
+      GOPATH: "{{ lookup('env', 'HOME') }}/go"
+      PATH: "/usr/local/go/bin:{{ lookup('env', 'PATH') }}"
+      GOSUMDB: off
 
   - name: clone bettercap caplets
     git:
@@ -717,6 +584,10 @@
       content: |
         # Add your configuration overrides on this file any configuration changes done to default.toml will be lost!
         # Example:
+        #
+        # use these to log into the web UI
+        ui.web.username = "changeme"
+        ui.web.password = "changeme"
         ui.display.enabled = true
         ui.display.type = "displayhatmini"
         main.custom_plugins = "{{ pwnagotchi.custom_plugin_dir }}"
@@ -726,11 +597,17 @@
         ui.backgroundcolor="#000000"
         ui.foregroundcolor="#ffffff"
         ui.colormode="RGB"
+        main.whitelist = [
+          "EXAMPLE_NETWORK",
+          "ANOTHER_EXAMPLE_NETWORK",
+          "fo:od:ba:be:fo:od",
+          "fo:od:ba",
+        ]
         main.plugins.rss_voice.enabled = true
         main.plugins.rss_voice.path = "/root/voice_rss"
         main.plugins.rss_voice.feed.wait.url = "https://www.reddit.com/r/pwnagotchi/comments.rss"
-        main.plugins.rss_voice.feed.bored.url = "https://www.reddit.com/r/showerthoughts+pwnagotchi.rss"
-        main.plugins.rss_voice.feed.sad.url = "https://www.reddit.com/r/oneliners.rss"
+        main.plugins.rss_voice.feed.bored.url = "https://www.reddit.com/r/pwnagotchi.rss"
+        main.plugins.rss_voice.feed.sad.url = "https://www.reddit.com/r/showerthoughts.rss"
     when: not user_config.stat.exists
 
   - name: set up pi user crontab to kick wifi.recon on bettercap
