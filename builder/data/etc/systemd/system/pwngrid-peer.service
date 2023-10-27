@@ -10,7 +10,7 @@ PermissionsStartOnly=true
 ExecStart=/usr/bin/pwngrid-launcher -keys /etc/pwnagotchi -address 127.0.0.1:8666 -client-token /root/.api-enrollment.json -wait -log /var/log/pwngrid-peer.log -iface mon0
 
 Restart=always
-RestartSec=30
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
