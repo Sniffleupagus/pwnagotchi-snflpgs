@@ -20,7 +20,7 @@ source "arm-image" "base-image" {
   iso_checksum      = "file:https://downloads.raspberrypi.org/raspios_lite_armhf/images/raspios_lite_armhf-2023-05-03/2023-05-03-raspios-bullseye-armhf-lite.img.xz.sha256"
   iso_url           = "https://downloads.raspberrypi.org/raspios_lite_armhf/images/raspios_lite_armhf-2023-05-03/2023-05-03-raspios-bullseye-armhf-lite.img.xz"
   output_filename   = "../../base_raspios-bullseye-armhf.img"
-  qemu_args         = ["-cpu", "arm1176", "-r", "6.1.21+"]
+  qemu_args         = ["-cpu", "arm1176"]
   qemu_binary       = "qemu-arm-static"
   target_image_size = 6368709120
 }
@@ -52,6 +52,7 @@ source "arm-image" "pwnagotchi64" {
 
 build {
   sources = [
+    "source.arm-image.base-image",
     "source.arm-image.base64-image",
     "source.arm-image.pwnagotchi",
     "source.arm-image.pwnagotchi64"
@@ -60,14 +61,6 @@ build {
   provisioner "file" {
     destination = "/root/staging/"
     source      = "../../staging/"
-  }
-
-  provisioner "shell" {
-    inline = [
-      "cd /root/staging/bin",
-      "chmod a+x *",
-      "cp * /usr/local/bin"
-    ]
   }
 
   provisioner "file" {
@@ -135,14 +128,30 @@ build {
     playbook_dir    = "../builder/"
     playbook_file   = "../builder/pwnagotchi.yml"
     override = {
-      "*.base-image" = { only = "untagged,base,only32" }
-      "*.base64-image" = { only = "untagged,base,onl64" }
-      "*.pwnagotchi" = {
-	only = "untagged,pwnagotchi,only32"
-      }
-      "*.pwnagotchi64" = {
-	only = "untagged,base,pwnagotchi64,only64"
-      }
+      "base-image" = {
+	extra_arguments = [
+	  "--extra-vars \"ansible_python_interpreter=/usr/bin/python3\"",
+	  "-vv",
+	  "--skip-tags", "only64,pwnagotchi"
+	] },
+      "base64-image" = {
+	extra_arguments = [
+	  "--extra-vars \"ansible_python_interpreter=/usr/bin/python3\"",
+	  "-vv",
+	  "--skip-tags", "only32,pwnagotchi"
+	] },
+      "pwnagotchi" = {
+	extra_arguments = [
+	  "--extra-vars \"ansible_python_interpreter=/usr/bin/python3\"",
+	  "-vv",
+	  "--skip-tags", "only64"
+	] },
+      "pwnagotchi64" = {
+	extra_arguments = [
+	  "--extra-vars \"ansible_python_interpreter=/usr/bin/python3\"",
+	  "-vvv",
+	  "--skip-tags", "only32"
+	] }
     } 
   }
 

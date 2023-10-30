@@ -37,7 +37,7 @@
         cpu: cortex-a72,
         arch_flags: "-arch aarch64"
         }
-    staging: "/root/staging"
+    staging: "/root/staging/{{ ansible_architecture }}"
     kernel:
       min: "6.1"
       full: "6.1.21+"
@@ -208,9 +208,9 @@
           - xxd
           - zlib1g-dev
   environment:
-    ARCHFLAGS: -arch armv6l
+    #ARCHFLAGS: -arch armv6l
+    #QEMU_CPU: arm1176
     QEMU_UNAME: "{{ kernel.full }}"
-    QEMU_CPU: arm1176
 
   tasks:
 
@@ -230,7 +230,6 @@
       chdir: /usr/local/src
     tags:
       - base
-      - config
 
   - name: change hostname
     lineinfile:
@@ -285,53 +284,17 @@
   - name: update apt package cache
     apt:
       update_cache: yes
-    tags:
-      - base
-      - pwnagotchi
-      - update
 
   - name: install packages
     apt:
       name: "{{ packages.apt.install }}"
       state: present
-    tags:
-      - base
-      - pwnagotchi
 
   - name: update pip3, setuptools, wheel
     shell: "python3 -m pip install --upgrade pip setuptools wheel"
     args:
       executable: /bin/bash
       chdir: /usr/local/src
-    tags:
-      - python
-      - base
-      - pwnagotchi
-      - build
-
-  ###########################################
-  #
-  # Torch, Torchvision and Stable Baselines 3
-  #
-  ###########################################
-  # maybe merge this with the pwnagotch wheel below
-
-  # - name: install torch, torchvision and stable-baselines-3
-  #   pip:
-  #     name:
-  #       - "{{ packages.torch.url }}"
-  #       - "{{ packages.torchvision.url }}"
-  #       - "stable-baselines3==1.8.0"
-  #   environment:
-  #     QEMU_CPU: arm1176
-  #   retries: 7
-  #   delay: 20
-  #   register: torch_installed
-  #   until: torch_installed is not failed
-  #   tags:
-  #     - python
-  #     - build
-  #     - prep
 
   ###########################################
   #
@@ -339,6 +302,9 @@
   #
   ###########################################
 
+  # check for presence, then it can re-run in later parts if needed
+  # use the "make" built in
+  
   # install libpcap before bettercap and pwngrid, so they use it
   - name: clone libpcap v1.9 from github
     git:
@@ -372,9 +338,11 @@
     include_tasks: nexmon.yml
     loop: "{{ boards }}"
     tags:
-      - pwnagotchi
+      - base
+      - build_nexmon
 
   # some pizero2w have the pizeroW wifi chip
+  # could this be a link instead of a copy? and force, only if not a link?
   - name: copy 43430-sdio as 43436s-sdio for the special 43430/1 /2
     copy:
       src: /usr/lib/firmware/brcm/brcmfmac43430-sdio.bin
@@ -382,6 +350,7 @@
       follow: true
 
   # check for presence of /usr/local/bin/nexutil and skip this if they do
+  # move into the nexmon.yml because what if we didn't install the repo?
   - name: check for /usr/local/bin/nexutil
     stat: path=/usr/local/bin/nexutil
     register: nexutil
@@ -427,6 +396,7 @@
 
   # To shrink the final image, remove the nexmon directory (takes 2.5G of space) post build and installation
   - name: Delete nexmon content & directory
+    tags: only32
     file:
       state: absent
       path: /usr/local/src/nexmon/
@@ -436,35 +406,24 @@
       state: directory
       path: "{{ staging }}/wheels"
 
-  - name: Download torch wheel
-    ansible.builtin.uri:
-      url: "{{ packages.torch.url }}"
-      dest: "{{ staging }}/wheels"
-      follow_redirects: safe
-      creates: "{{ staging }}/wheels/{{ packages.torch.url | basename }}"
-    register: torch_wheel
-
-  - name: Download torchvision wheel
-    ansible.builtin.uri:
-      url: "{{ packages.torchvision.url }}"
-      dest: "{{ staging }}/wheels"
-      follow_redirects: safe
-      creates: "{{ staging }}/wheels/{{ packages.torchvision.url | basename }}"
-    register: torchvision_wheel
-
   - name: clone pwnagotchi repository
     git:
       repo: https://github.com/Sniffleupagus/pwnagotchi-snflpgs.git
       dest: /usr/local/src/pwnagotchi
     register: pwnagotchigit
-
+    tags: pwnagotchi
+    
+  # is this even necessary? Can't we just link from /home/pi/pwnagotchi to /usr/local/{bin,lib,etc}
+  # then just git update in the home dir and encourage hacking?
+  # make owned by pi.pi, and custom plugins.
   - name: build pwnagotchi wheel
     command: "python3 setup.py sdist bdist_wheel"
     args:
       chdir: /usr/local/src/pwnagotchi
     when: (pwnagotchigit.changed) or (pip_packages['pwnagotchi'] is undefined) or (pip_packages['pwnagotchi'] != pwnagotchi_version)
+    tags: pwnagotchi
 
-  - name: install pwnagotchi wheel and dependencies
+  - name: install 32-bit pwnagotchi wheel and dependencies with 32-bit torch wheels
     pip:
       name:
         - "{{ lookup('fileglob', '/usr/local/src/pwnagotchi/dist/pwnagotchi*.whl') }}"
@@ -473,24 +432,43 @@
         - "stable-baselines3==1.8.0"
       extra_args: "--no-cache-dir"
     environment:
-      QEMU_CPU: arm1176
+      #QEMU_CPU: arm1176
       QEMU_UNAME: "{{ kernel.full }}"
     when: (pwnagotchigit.changed) or (pip_packages['pwnagotchi'] is undefined) or (pip_packages['pwnagotchi'] != pwnagotchi_version)
+    tags:
+      - pwnagotchi
+      - only32
+
+  - name: install 64-bit pwnagotchi wheel and dependencies
+    pip:
+      name:
+        - "{{ lookup('fileglob', '/usr/local/src/pwnagotchi/dist/pwnagotchi*.whl') }}"
+        - "stable-baselines3==1.8.0"
+      extra_args: "--no-cache-dir"
+    environment:
+      QEMU_UNAME: "{{ kernel.full }}"
+    when: (pwnagotchigit.changed) or (pip_packages['pwnagotchi'] is undefined) or (pip_packages['pwnagotchi'] != pwnagotchi_version)
+    tags:
+      - only64
+      - pwnagotchi
 
   - name: copy pwnagotchi wheel to staging dir
     ansible.builtin.copy:
       src: "{{ lookup('fileglob', '/usr/local/src/pwnagotchi/dist/pwnagotchi*.whl') }}"
       dest: "{{ staging }}/wheels"
+    tags: pwnagotchi
 
   - name: create /usr/local/share/pwnagotchi/ folder
     file:
       path: /usr/local/share/pwnagotchi/
       state: directory
+    tags: pwnagotchi
 
   - name: remove pwnagotchi folder
     file:
       state: absent
       path: /usr/local/src/pwnagotchi
+    tags: pwnagotchi
 
   ##########################################
   #
@@ -572,13 +550,16 @@
     file:
       path: /etc/pwnagotchi
       state: directory
+    tags: pwnagotchi
 
   - name: check if user configuration exists
     stat:
       path: /etc/pwnagotchi/config.toml
     register: user_config
+    tags: pwnagotchi
 
   - name: create /etc/pwnagotchi/config.toml
+    tags: pwnagotchi
     copy:
       dest: /etc/pwnagotchi/config.toml
       content: |
@@ -611,6 +592,7 @@
     when: not user_config.stat.exists
 
   - name: set up pi user crontab to kick wifi.recon on bettercap
+    tags: pwnagotchi
     copy:
       dest: /tmp/pi-crontab
       content: |
@@ -640,6 +622,7 @@
         */5 *  *   *   *     /home/pi/bin/bcinfo.py -qw >/dev/null 2>&1
 
   - name: install pi crontab
+    tags: pwnagotchi
     command: "crontab -u pi /tmp/pi-crontab"
     args:
       chdir: /tmp
@@ -647,6 +630,7 @@
     ignore_errors: true
 
   - name: delete /tmp/pi-crontab
+    tags: pwnagotchi
     file:
       state: absent
       path: /tmp/pi-crontab
@@ -660,12 +644,14 @@
     file:
       path: /boot/ssh
       state: touch
+    tags: base
 
   - name: disable wlan0 in dhcpcd.conf
     lineinfile:
       dest: /etc/dhcpcd.conf
       insertafter: EOF
       line: "denyinterfaces wlan0"
+    tags: base
 
   - name: adjust /boot/config.txt
     lineinfile:
@@ -673,6 +659,7 @@
       insertafter: EOF
       line: '{{ item }}'
     with_items: "{{system.boot_options}}"
+    tags: pwnagotchi
 
   - name: adjust /etc/modules
     lineinfile:
@@ -680,6 +667,7 @@
       insertafter: EOF
       line: '{{ item }}'
     with_items: "{{system.modules}}"
+    tags: pwnagotchi
 
   - name: change root partition
     replace:
@@ -687,6 +675,7 @@
       backup: no
       regexp: "root=PARTUUID=[a-zA-Z0-9\\-]+"
       replace: "root=/dev/mmcblk0p2"
+    tags: base
 
   - name: configure /boot/cmdline.txt
     lineinfile:
@@ -696,12 +685,14 @@
       backup: no
       regexp: '(.*)$'
       line: '\1 modules-load=dwc2,g_ether'
+    tags: pwnagotchi
 
   - name: clone Sniffleupagus pwny utils
     git:
       repo: https://github.com/Sniffleupagus/pwnagotchi-utils.git
       dest: /home/pi/git/pwnagotchi-utils
     register: sniffleupagus_utils_fetched
+    tags: pwnagotchi
 
   - name: grab list of utils
     ansible.builtin.find:
@@ -709,6 +700,7 @@
       patterns: '*.py'
       recurse: no
     register: sniffleupagus_utils
+    tags: pwnagotchi
 
   - name: Create home bin directory
     file:
@@ -717,6 +709,7 @@
       owner: 'pi'
       group: 'pi'
       state: directory
+    tags: pwnagotchi
 
   - name: copy to /home/pi/bin
     ansible.builtin.copy:
@@ -727,6 +720,7 @@
       owner: 'pi'
       group: 'pi'
     with_items: '{{ sniffleupagus_utils.files }}'
+    tags: pwnagotchi
 
   # evil socket plugins
   - name: clone pwnagotchi community plugin repository
@@ -734,6 +728,7 @@
       repo: https://github.com/evilsocket/pwnagotchi-plugins-contrib.git
       dest: /usr/local/src/pwnagotchi-plugins-contrib
     register: evilsocket_plugins_fetched
+    tags: pwnagotchi
 
   - name: grab list of plugins
     ansible.builtin.find:
@@ -741,6 +736,7 @@
       patterns: '*.py'
       recurse: no
     register: evilsocket_plugins
+    tags: pwnagotchi
 
   - name: copy to custom plugins
     ansible.builtin.copy:
@@ -749,6 +745,7 @@
       follow: yes
     with_items: '{{ evilsocket_plugins.files }}'
     ignore_errors: true
+    tags: pwnagotchi
     
   # MORE plugins
   - name: clone Sniffleupagus plugins
@@ -756,6 +753,7 @@
       repo: https://github.com/Sniffleupagus/pwnagotchi_plugins.git
       dest: /home/pi/git/pwnagotchi_plugins
     register: sniffleupagus_plugins_fetched
+    tags: pwnagotchi
 
   - name: grab list of plugins
     ansible.builtin.find:
@@ -763,6 +761,7 @@
       patterns: '*.py'
       recurse: no
     register: sniffleupagus_plugins
+    tags: pwnagotchi
 
   - name: copy to custom plugins
     ansible.builtin.copy:
@@ -770,24 +769,28 @@
       dest: '{{ pwnagotchi.custom_plugin_dir }}'
       follow: yes
     with_items: '{{ sniffleupagus_plugins.files }}'
+    tags: pwnagotchi
     
   - name: Add pwnlog alias
     lineinfile:
       dest: /home/pi/.bashrc
       line: "\nalias pwnlog='tail -f -n300 /var/log/pwn*.log | sed --unbuffered \"s/,[[:digit:]]\\{3\\}\\]//g\" | cut -d \" \" -f 2-'"
       insertafter: EOF
+    tags: pwnagotchi
 
   - name: Add pwnver alias
     lineinfile:
       dest: /home/pi/.bashrc
       line: "\nalias pwnver='python3 -c \"import pwnagotchi as p; print(p.__version__)\"'"
       insertafter: EOF
+    tags: pwnagotchi
 
   - name: Add pwnkill alias to restart pwnagotchi with a signal
     lineinfile:
       dest: /home/pi/.bashrc
       line: "\nalias pwnkill='sudo killall -USR1 pwnagotchi'"
       insertafter: EOF
+    tags: pwnagotchi
 
   - name: add firmware packages to hold
     dpkg_selections:
@@ -808,6 +811,7 @@
       enabled: true
       state: stopped
     with_items: "{{ services.enable }}"
+    tags: pwnagotchi
 
   - name: remove golang build libraries
     file:
