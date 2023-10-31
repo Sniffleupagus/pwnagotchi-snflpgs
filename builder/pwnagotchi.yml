@@ -358,6 +358,7 @@
     # nexutil command line utility
   - name: build and install nexutil
     when: not nexutil.stat.exists
+    tags: only32
     block:
       - name: make nexutil
         shell: "source ./setup_env.sh && cd utilities/nexutil && make"
