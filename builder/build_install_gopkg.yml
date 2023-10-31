@@ -8,13 +8,23 @@
     stat: path=/usr/local/go
     register: big_golang
 
-  - name: Download and install golang
+  - name: Download and install armv6l golang
     when: not big_golang.stat.exists
     unarchive:
-      src: https://go.dev/dl/go1.21.1.linux-armv6l.tar.gz
+      src: https://go.dev/dl/go1.21.3.linux-armv6l.tar.gz
       dest: /usr/local
       remote_src: yes
     register: big_golang
+    tags: only32
+
+  - name: Download and install arm64 golang
+    when: not big_golang.stat.exists
+    unarchive:
+      src: https://go.dev/dl/go1.21.3.linux-arm64.tar.gz
+      dest: /usr/local
+      remote_src: yes
+    register: big_golang
+    tags: only64
 
   - name: 'download target {{ item.name }} from github'
     git:
