@@ -21,7 +21,7 @@ source "arm-image" "base-image" {
   iso_url           = "https://downloads.raspberrypi.org/raspios_lite_armhf/images/raspios_lite_armhf-2023-05-03/2023-05-03-raspios-bullseye-armhf-lite.img.xz"
   output_filename   = "../../base_raspios-bullseye-armhf.img"
   qemu_args         = ["-cpu", "arm1176"]
-  qemu_binary       = "qemu-arm-static"
+  image_arch        = "arm"
   target_image_size = 6368709120
 }
 
@@ -29,7 +29,7 @@ source "arm-image" "base64-image" {
   iso_checksum      = "file:https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2023-05-03/2023-05-03-raspios-bullseye-arm64-lite.img.xz.sha256"
   iso_url           = "https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2023-05-03/2023-05-03-raspios-bullseye-arm64-lite.img.xz"
   output_filename   = "/root/base_raspios-bullseye-aarch64.img.new"
-  qemu_binary       = "qemu-aarch64-static"
+  image_arch        = "arm64"
   target_image_size = 6368709120
 }
 
@@ -38,7 +38,7 @@ source "arm-image" "pwnagotchi" {
   iso_url           = "/root/base_raspios-bullseye-armhf.img.xz"
   output_filename   = "/root/pwnagotchi-${var.pwn_version}-armhf.img"
   qemu_args         = ["-cpu", "arm1176"]
-  qemu_binary       = "qemu-arm-static"
+  image_arch        = "arm"
   target_image_size = 9368709120
 }
 
@@ -46,7 +46,16 @@ source "arm-image" "pwnagotchi64" {
   iso_checksum      = "file:https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2023-05-03/2023-05-03-raspios-bullseye-arm64-lite.img.xz.sha256"
   iso_url           = "https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2023-05-03/2023-05-03-raspios-bullseye-arm64-lite.img.xz"
   output_filename   = "/root/pwnagotchi-${var.pwn_version}-aarch64.img"
-  qemu_binary       = "qemu-aarch64-static"
+  image_arch        = "arm64"
+  target_image_size = 9368709120
+}
+
+source "arm-image" "orangepwn02w" {
+  iso_checksum      = "file:/vagrant/Orangepizero2w_1.0.0_debian_bookworm_server_linux6.1.31.img.sha"
+  iso_url           = "file:/vagrant/Orangepizero2w_1.0.0_debian_bookworm_server_linux6.1.31.img"
+  image_type        = "armbian"
+  output_filename   = "/root/pwnagotchi-${var.pwn_version}-orangepi02w.img"
+  image_arch        = "arm64"
   target_image_size = 9368709120
 }
 
@@ -55,7 +64,8 @@ build {
     "source.arm-image.base-image",
     "source.arm-image.base64-image",
     "source.arm-image.pwnagotchi",
-    "source.arm-image.pwnagotchi64"
+    "source.arm-image.pwnagotchi64",
+    "source.arm-image.orangepwn02w"
   ]
 
   provisioner "file" {
@@ -120,6 +130,20 @@ build {
       "echo '###======]> INSTALLING ANSIBLE <[=====###'",
       "apt install -y ansible"
     ]
+    override = {
+      "orangepwn02w" = {
+	inline = [
+	  "echo Skip nstall kernel headers",
+	  "#apt install linux-headers-$(uname -r)",
+	  "echo '>>>-----> APT UPDATE <-----<<<'",
+	  "apt-get -y --allow-releaseinfo-change update",
+	  "echo '==>-----> APT UPGRADE <-----<=='",
+	  "#apt-get -y upgrade",
+	  "echo '###======]> INSTALLING ANSIBLE <[=====###'",
+	  "apt install -y ansible"
+	]
+      }
+    }
   }
 
   provisioner "ansible-local" {
@@ -132,25 +156,31 @@ build {
 	extra_arguments = [
 	  "--extra-vars \"ansible_python_interpreter=/usr/bin/python3\"",
 	  "-vv",
-	  "--skip-tags", "only64,pwnagotchi"
+	  "--skip-tags", "only64,pwnagotchi,no_raspi"
 	] },
       "base64-image" = {
 	extra_arguments = [
 	  "--extra-vars \"ansible_python_interpreter=/usr/bin/python3\"",
 	  "-vv",
-	  "--skip-tags", "only32,pwnagotchi"
+	  "--skip-tags", "only32,pwnagotchi,no_raspi"
 	] },
       "pwnagotchi" = {
 	extra_arguments = [
 	  "--extra-vars \"ansible_python_interpreter=/usr/bin/python3\"",
 	  "-vv",
-	  "--skip-tags", "only64"
+	  "--skip-tags", "only64,no_raspi"
 	] },
       "pwnagotchi64" = {
 	extra_arguments = [
 	  "--extra-vars \"ansible_python_interpreter=/usr/bin/python3\"",
 	  "-vvv",
-	  "--skip-tags", "only32"
+	  "--skip-tags", "only32,no_raspi"
+	] },
+      "orangepwn02w" = {
+	extra_arguments = [
+	  "--extra-vars \"ansible_python_interpreter=/usr/bin/python3\"",
+	  "-vvv",
+	  "--skip-tags", "only32,no_orangepi"
 	] }
     } 
   }

@@ -31,6 +31,22 @@
         }
       - {
         kernel: "6.1.21-v8+",
+        name: "PiZero2W/1",
+        firmware: "brcmfmac43430-sdio.bin",
+        patch: "bcm43430a1/7_45_41_46",
+        cpu: cortex-a53,
+        arch_flags: "-arch aarch64"
+        }
+      - {
+        kernel: "6.1.21-v8+",
+        name: "PiZero2W/2",
+        firmware: "brcmfmac43436-sdio.bin",
+        patch: "bcm43436b0/9_88_4_65",
+        cpu: cortex-a53,
+        arch_flags: "-arch aarch64"
+        }
+      - {
+        kernel: "6.1.21-v8+",
         name: "Pi4b_64",
         firmware: "brcmfmac43455-sdio.bin",
         patch: "bcm43455c0/7_45_206",
@@ -43,6 +59,7 @@
       full: "6.1.21+"
       full_2w: "6.1.21-v7+"
       full_4b: "6.1.21-v7l+"
+      full_opi: "6.1.31-sun50iw9"
       arch: "v6l"
     pwnagotchi:
       hostname: "{{ lookup('env', 'PWN_HOSTNAME') | default('pwnagotchi', true) }}"
@@ -52,7 +69,6 @@
       boot_options:
         - "#### pwnagotchi additions"
         - "# this pwnagotchi image is 32-bit only no v8+ headers to build nexmon for 64 bit"
-        - "arm_64bit=0"
         - "# dwc2 for RNDIS. comment out, and remove dwc2 and g_ether from cmdline.txt for X306 usb battery hat"
         - "dtoverlay=dwc2"
         - "dtoverlay=spi1-3cs"
@@ -144,8 +160,6 @@
           - gcc-arm-none-eabi
           - git
           - libatlas-base-dev
-          - libavcodec58
-          - libavformat58
           - libblas-dev
           - libbz2-dev
           - libc-ares-dev
@@ -172,15 +186,9 @@
           - libopenmpi3
           - libpcap-dev
           - libprotobuf-dev
-          - libraspberrypi-bin
-          - libraspberrypi-dev
-          - libraspberrypi-doc
-          - libraspberrypi0
           - libsleef-dev
           - libsqlite3-dev
           - libssl-dev
-          - libswscale5
-          - libtiff5
           - libtool
           - libts-bin
           - libusb-1.0-0-dev
@@ -194,7 +202,6 @@
           - python3-protobuf
           - python3-smbus
           - qpdf
-          - raspberrypi-kernel-headers
           - rsync
           - screen
           - tcpdump
@@ -207,10 +214,24 @@
           - wl
           - xxd
           - zlib1g-dev
+        install_rpi:
+          - libavcodec58
+          - libavformat58
+          - libswscale5
+          - libtiff5
+          - libraspberrypi-bin
+          - libraspberrypi-dev
+          - libraspberrypi-doc
+          - libraspberrypi0
+        install_opi:
+          - libavcodec59
+          - libavformat59
+          - libswscale6
+          - libtiff6
   environment:
     #ARCHFLAGS: -arch armv6l
     #QEMU_CPU: arm1176
-    QEMU_UNAME: "{{ kernel.full }}"
+    #QEMU_UNAME: "{{ kernel.full_opi }}"
 
   tasks:
 
@@ -221,7 +242,7 @@
         pi:$6$3jNr0GA9KIyt4hmM$efeVIopdMQ8DGgEPCWWlbx3mJJNAYci1lEXGdlky0xPyjqwKNbwTL5SrCcpb4144C4IvzWjn7Iv.QjqmU7iyT/
     tags:
       - base
-      - config
+      - no_orangepi
 
   - name: check uname -m just to be sure
     shell: "uname -m && uname -a && ls -l"
@@ -241,7 +262,6 @@
     register: hostname
     tags:
       - base
-      - config
 
   - name: add hostname to /etc/hosts
     lineinfile:
@@ -252,7 +272,6 @@
     when: hostname.changed
     tags:
       - base
-      - config
 
   - name: disable sap plugin for bluetooth.service
     lineinfile:
@@ -261,8 +280,8 @@
       line: 'ExecStart=/usr/lib/bluetooth/bluetoothd --noplugin=sap'
       state: present
     tags:
-      - config
       - base
+      - no_orangepi
 
   - name: configure dphys-swapfile
     lineinfile:
@@ -270,31 +289,48 @@
       regexp: "^CONF_SWAPSIZE=.*$"
       line: "CONF_SWAPSIZE=2048"
     tags:
-      - config
       - base
-
-  - name: Create custom plugin directory
-    file:
-      path: '{{ pwnagotchi.custom_plugin_dir }}'
-      state: directory
-    tags:
-      - pwnagotchi
-      - build
+      - no_orangepi
 
   - name: update apt package cache
     apt:
       update_cache: yes
 
-  - name: install packages
+  - name: install packages for all systems
     apt:
       name: "{{ packages.apt.install }}"
       state: present
+
+  - name: install packages for raspberry pi
+    apt:
+      name: "{{ packages.apt.install_rpi }}"
+      state: present
+    tags:
+      - no_orangepi
+
+  - name: install packages for orange pi
+    apt:
+      name: "{{ packages.apt.install_opi }}"
+      state: present
+    tags:
+      - orangepi
+      - no_raspi
 
   - name: update pip3, setuptools, wheel
     shell: "python3 -m pip install --upgrade pip setuptools wheel"
     args:
       executable: /bin/bash
       chdir: /usr/local/src
+    tags:
+      - no_orangepi
+
+  - name: update pip3, setuptools, wheel (--break-system-packages)
+    shell: "python3 -m pip install --upgrade pip setuptools wheel --break-system-packages"
+    args:
+      executable: /bin/bash
+      chdir: /usr/local/src
+    tags:
+      - no_raspi
 
   ###########################################
   #
@@ -304,42 +340,40 @@
 
   # check for presence, then it can re-run in later parts if needed
   # use the "make" built in
-  
-  # install libpcap before bettercap and pwngrid, so they use it
-  - name: clone libpcap v1.9 from github
-    git:
-      repo: 'https://github.com/the-tcpdump-group/libpcap.git'
-      dest: /usr/local/src/libpcap
-      version: libpcap-1.9
-    tags:
-      - base
+  - name: check for /usr/local/lib/libpcap.so.1
+    stat: path=/usr/local/lib/lib/libpcap.so.1
+    register: libpcap_so
 
-  - name: build and install libpcap into /usr/local/lib
-    shell: "./configure && make && make install"
-    args:
-      executable: /bin/bash
-      chdir: /usr/local/src/libpcap
-    tags:
-      - base
+  - name: Build and install libpcap v1.9
+    when: not libpcap_so.stat.exists
+    block:
+      - name: clone libpcap v1.9 from github
+        git:
+          repo: 'https://github.com/the-tcpdump-group/libpcap.git'
+          dest: /usr/local/src/libpcap
+          version: libpcap-1.9
 
-  - name: remove libpcap build folder
-    file:
-      state: absent
-      path: /usr/local/src/libpcap
-    tags:
-      - base
+      - name: build and install libpcap into /usr/local/lib
+        shell: "./configure && make && make install"
+        args:
+          executable: /bin/bash
+          chdir: /usr/local/src/libpcap
 
-  ###############################################################
-  # Install nexmon to fix wireless scanning (takes 2.5G of space)
-  ###############################################################
+      - name: remove libpcap build folder
+        file:
+          state: absent
+          path: /usr/local/src/libpcap
+
+  #########################################################
+  # Install nexmon to get monitor mode on built-in Pi-WiFi
+  #########################################################
 
   # Install nexmon for all boards
   - name: build and install nexmon as needed
     include_tasks: nexmon.yml
     loop: "{{ boards }}"
     tags:
-      - base
-      - build_nexmon
+      - no_orangepi
 
   # some pizero2w have the pizeroW wifi chip
   # could this be a link instead of a copy? and force, only if not a link?
@@ -348,40 +382,7 @@
       src: /usr/lib/firmware/brcm/brcmfmac43430-sdio.bin
       dest: /usr/lib/firmware/brcm/brcmfmac43436s-sdio.bin
       follow: true
-
-  # check for presence of /usr/local/bin/nexutil and skip this if they do
-  # move into the nexmon.yml because what if we didn't install the repo?
-  - name: check for /usr/local/bin/nexutil
-    stat: path=/usr/local/bin/nexutil
-    register: nexutil
-
-    # nexutil command line utility
-  - name: build and install nexutil
-    when: not nexutil.stat.exists
-    tags: only32
-    block:
-      - name: make nexutil
-        shell: "source ./setup_env.sh && cd utilities/nexutil && make"
-        args:
-          executable: /bin/bash
-          chdir: /usr/local/src/nexmon/
-
-      - name: install nexutil
-        copy:
-          src: /usr/local/src/nexmon/utilities/nexutil/nexutil
-          dest: /usr/local/bin/
-          mode: '755'
-          follow: true
-
-      - name: make bin staging dir
-        file:
-          state: directory
-          path: "{{ staging }}/bin"
-
-      - name: copy nexutil to staging directory
-        copy:
-          src: /usr/local/bin/nexutil
-          dest: "{{ staging }}/bin/"
+    tags: no_orangepi
 
   # delete blob files that make nexmon sad
   - name: Delete the firmware blob files to avoid some nexmon crashing
@@ -394,19 +395,11 @@
       - /usr/lib/firmware/brcm/brcmfmac43430b0-sdio.raspberrypi,model-zero-2-w.clm_blob
       - /usr/lib/firmware/brcm/brcmfmac43436-sdio.raspberrypi,model-zero-2-w.clm_blob
       - /usr/lib/firmware/brcm/brcmfmac43430-sdio.raspberrypi,3-model-b.clm_blob
+    tags: no_orangepi
 
-  # To shrink the final image, remove the nexmon directory (takes 2.5G of space) post build and installation
-  - name: Delete nexmon content & directory
-    tags: only32
-    file:
-      state: absent
-      path: /usr/local/src/nexmon/
-
-  - name: make wheel staging dir
-    file:
-      state: directory
-      path: "{{ staging }}/wheels"
-
+  #############
+  # PWNAGOTCHI
+  #############
   - name: clone pwnagotchi repository
     git:
       repo: https://github.com/Sniffleupagus/pwnagotchi-snflpgs.git
@@ -428,9 +421,8 @@
     pip:
       name:
         - "{{ lookup('fileglob', '/usr/local/src/pwnagotchi/dist/pwnagotchi*.whl') }}"
-        - "{{ staging }}/wheels/{{ packages.torch.url | basename }}"
-        - "{{ staging }}/wheels/{{ packages.torchvision.url | basename }}"
-        - "stable-baselines3==1.8.0"
+        - "{{ packages.torch.url }}"
+        - "{{ packages.torchvision.url }}"
       extra_args: "--no-cache-dir"
     environment:
       #QEMU_CPU: arm1176
@@ -444,14 +436,32 @@
     pip:
       name:
         - "{{ lookup('fileglob', '/usr/local/src/pwnagotchi/dist/pwnagotchi*.whl') }}"
-        - "stable-baselines3==1.8.0"
       extra_args: "--no-cache-dir"
     environment:
       QEMU_UNAME: "{{ kernel.full }}"
     when: (pwnagotchigit.changed) or (pip_packages['pwnagotchi'] is undefined) or (pip_packages['pwnagotchi'] != pwnagotchi_version)
     tags:
-      - only64
       - pwnagotchi
+      - only64
+      - no_orangepi
+
+  - name: install 64-bit pwnagotchi wheel and dependencies (--break-system-packages)
+    pip:
+      name:
+        - "{{ lookup('fileglob', '/usr/local/src/pwnagotchi/dist/pwnagotchi*.whl') }}"
+      extra_args: "--no-cache-dir --break-system-packages"
+    environment:
+      QEMU_UNAME: "{{ kernel.full }}"
+    when: (pwnagotchigit.changed) or (pip_packages['pwnagotchi'] is undefined) or (pip_packages['pwnagotchi'] != pwnagotchi_version)
+    tags:
+      - pwnagotchi
+      - only64
+      - no_raspi
+
+  - name: make wheel staging dir
+    file:
+      state: directory
+      path: "{{ staging }}/wheels"
 
   - name: copy pwnagotchi wheel to staging dir
     ansible.builtin.copy:
@@ -546,6 +556,7 @@
         if ! /opt/vc/bin/tvservice -s | egrep 'HDMI|DVI'; then
           /opt/vc/bin/tvservice -o
         fi
+    tags: no_orangepi
 
   - name: create /etc/pwnagotchi folder
     file:
@@ -652,7 +663,9 @@
       dest: /etc/dhcpcd.conf
       insertafter: EOF
       line: "denyinterfaces wlan0"
-    tags: base
+    tags:
+      - base
+      - no_orangepi
 
   - name: adjust /boot/config.txt
     lineinfile:
@@ -660,7 +673,9 @@
       insertafter: EOF
       line: '{{ item }}'
     with_items: "{{system.boot_options}}"
-    tags: pwnagotchi
+    tags:
+      - pwnagotchi
+      - no_orangepi
 
   - name: adjust /etc/modules
     lineinfile:
@@ -668,7 +683,9 @@
       insertafter: EOF
       line: '{{ item }}'
     with_items: "{{system.modules}}"
-    tags: pwnagotchi
+    tags:
+      - pwnagotchi
+      - no_orangepi
 
   - name: change root partition
     replace:
@@ -676,7 +693,9 @@
       backup: no
       regexp: "root=PARTUUID=[a-zA-Z0-9\\-]+"
       replace: "root=/dev/mmcblk0p2"
-    tags: base
+    tags:
+      - base
+      - no_orangepi
 
   - name: configure /boot/cmdline.txt
     lineinfile:
@@ -686,7 +705,17 @@
       backup: no
       regexp: '(.*)$'
       line: '\1 modules-load=dwc2,g_ether'
-    tags: pwnagotchi
+    tags:
+      - pwnagotchi
+      - no_orangepi
+
+
+  - name: configure g_ether options for repeatable RNDIS device
+    copy:
+      dest: /etc/modprobe.d/g_ether.conf
+      content: "options g_ether use_eem=0 host_addr=f0:0d:ba:be:f0:0d dev_addr=58:70:77:6e:79:58"
+    tags:
+      - no_orangepi
 
   - name: clone Sniffleupagus pwny utils
     git:
@@ -722,6 +751,16 @@
       group: 'pi'
     with_items: '{{ sniffleupagus_utils.files }}'
     tags: pwnagotchi
+
+  ####################
+  # Custom plugins
+  ####################
+  - name: Create custom plugin directory
+    file:
+      path: '{{ pwnagotchi.custom_plugin_dir }}'
+      state: directory
+    tags:
+      - pwnagotchi
 
   # evil socket plugins
   - name: clone pwnagotchi community plugin repository
