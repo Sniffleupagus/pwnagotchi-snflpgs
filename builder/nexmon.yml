@@ -23,9 +23,13 @@
       stat: path="{{ staging }}/modules/{{ item.kernel }}/brcmfmac.ko"
       register: kmodule
 
+    - name: "Check for {{ staging }}/bin/nexutil"
+      stat: path="{{ staging }}/bin/nexutil"
+      register: nexutil
+
     - name: Build nexmon as needed
       when:
-        - not firmware.stat.exists or not kmodule.stat.exists
+        - not firmware.stat.exists or not kmodule.stat.exists or not nexutil.stat.exists
       block:  
 
         - name: Check for existence of nexmon repo
@@ -108,6 +112,32 @@
                 dest: "{{ staging }}/modules/{{ item.kernel }}/brcmfmac.ko"
                 follow: true
               register: brcmfmac_installed
+
+        - name: build and install nexutil
+          when: not nexutil.stat.exists
+          block:
+            - name: make nexutil
+              shell: "source ./setup_env.sh && cd utilities/nexutil && make"
+              args:
+                executable: /bin/bash
+                chdir: /usr/local/src/nexmon/
+
+            - name: make bin staging dir
+              file:
+                state: directory
+                path: "{{ staging }}/bin"
+
+            - name: copy nexutil to staging directory
+              copy:
+                src: /usr/local/src/nexmon/utilities/nexutil/nexutil
+                dest: "{{ staging }}/bin/"
+
+        # To shrink the final image, remove the nexmon directory (takes 2.5G of space) post build and installation
+        - name: Delete nexmon content & directory
+          file:
+            state: absent
+            path: /usr/local/src/nexmon/
+
     # end of nexmon build block. products should now be in staging if they were not already
 
     # check again, just to be sure
@@ -168,4 +198,20 @@
 
     - name: update module dependencies
       command: "/sbin/depmod -a {{ item.kernel }}"
+
+  # check for presence of /usr/local/bin/nexutil and skip this if they do
+  # move into the nexmon.yml because what if we didn't install the repo?
+    # nexutil command line utility
+    - name: "Check for {{ staging }}/bin/nexutil"
+      stat: path="{{ staging }}/bin/nexutil"
+      register: nexutil
+
+    # install from staging
+    - name: "Install {{ staging}}/bin/nexutil to /usr/local/bin"
+      when: nexutil.stat.exists
+      copy:
+        src: "{{ staging }}/bin/nexutil"
+        dest: /usr/local/bin/
+        mode: '755'
+        follow: true
 
