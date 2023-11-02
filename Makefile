@@ -52,21 +52,28 @@ $(SDIST): setup.py pwnagotchi
 # Building the image requires packer, but don't rebuild the image just because packer updated.
 $(PWN_RELEASE).img: | $(PACKER)
 
-base_image: ../base_raspios-bullseye-armhf.img.xz
-
-../base_raspios-bullseye-armhf.img.xz: ../base_raspios-bullseye-armhf.img
-	cd ..
-	@mv base_raspios-bullseye-armhf.img.xz base_raspios-bullseye-armhf.img.xz~
-	xz -k base_raspios-bullseye-armhf.img
-
-../base_raspios-bullseye-armhf.img: builder/base_image.json
+base32: $(SDIST) builder/pwnagotchi.json.pkr.hcl builder/pwnagotchi.yml $(shell find builder/data -type f)
 	$(PACKER) plugins install github.com/solo-io/arm-image
-	cd builder && $(UNSHARE) $(PACKER) build -on-error=abort -var "pwn_hostname=$(PWN_HOSTNAME)" -var "pwn_version=$(PWN_VERSION)" -only=base base_image.json
+	cd builder && $(UNSHARE) $(PACKER) build -on-error=abort -var "pwn_hostname=$(PWN_HOSTNAME)" -var "pwn_version=$(PWN_VERSION)" -only=arm-image.base-image pwnagotchi.json.pkr.hcl
 
 # If the packer or ansible files are updated, rebuild the image.
-$(PWN_RELEASE).img: $(SDIST) builder/pwnagotchi.json builder/pwnagotchi.yml $(shell find builder/data -type f)
+base64: $(SDIST) builder/pwnagotchi.json.pkr.hcl builder/pwnagotchi.yml $(shell find builder/data -type f)
 	$(PACKER) plugins install github.com/solo-io/arm-image
-	cd builder && $(UNSHARE) $(PACKER) build -on-error=abort -var "pwn_hostname=$(PWN_HOSTNAME)" -var "pwn_version=$(PWN_VERSION)" -only=pwnagotchi pwnagotchi.json.pkr.hcl
+	cd builder && $(UNSHARE) $(PACKER) build -on-error=abort -var "pwn_hostname=$(PWN_HOSTNAME)" -var "pwn_version=$(PWN_VERSION)" -only=arm-image.base64-image pwnagotchi.json.pkr.hcl
+
+# If the packer or ansible files are updated, rebuild the image.
+$(PWN_RELEASE).img: $(SDIST) builder/pwnagotchi.json.pkr.hcl builder/pwnagotchi.yml $(shell find builder/data -type f)
+	$(PACKER) plugins install github.com/solo-io/arm-image
+	cd builder && $(UNSHARE) $(PACKER) build -on-error=abort -var "pwn_hostname=$(PWN_HOSTNAME)" -var "pwn_version=$(PWN_VERSION)" -only=arm-image.pwnagotchi pwnagotchi.json.pkr.hcl
+
+# If the packer or ansible files are updated, rebuild the image.
+image64: $(SDIST) builder/pwnagotchi.json.pkr.hcl builder/pwnagotchi.yml $(shell find builder/data -type f)
+	$(PACKER) plugins install github.com/solo-io/arm-image
+	cd builder && $(UNSHARE) $(PACKER) build -on-error=abort -var "pwn_hostname=$(PWN_HOSTNAME)" -var "pwn_version=$(PWN_VERSION)" -only=\*.pwnagotchi64 pwnagotchi.json.pkr.hcl
+
+orangepi02w: $(SDIST) builder/pwnagotchi.json.pkr.hcl builder/pwnagotchi.yml $(shell find builder/data -type f)
+	$(PACKER) plugins install github.com/solo-io/arm-image
+	cd builder && $(UNSHARE) $(PACKER) build -on-error=abort -var "pwn_hostname=$(PWN_HOSTNAME)" -var "pwn_version=$(PWN_VERSION)" -only=\*.orangepwn02w pwnagotchi.json.pkr.hcl
 
 # If any of these files are updated, rebuild the checksums.
 $(PWN_RELEASE).sha256: $(PWN_RELEASE).img
