@@ -43,14 +43,14 @@
     until: result is not failed
     ignore_errors: true
 
-  - name: build package
+  - name: "build {{item.name}}"
     shell: "make"
     register: result
     args:
       executable: /bin/bash
       chdir: '/usr/local/src/{{ item.name }}'
 
-  - name: install pwngrid 1.10.4
+  - name: "install {{item.name}}"
     shell: "make install"
     register: result
     args:
@@ -62,7 +62,7 @@
       state: directory
       path: "/root/staging/bin"
 
-  - name: copy built binary to staging directory
+  - name: "copy built {{item.name}} binary to staging directory"
     copy:
       src: '/usr/local/bin/{{ item.name }}'
       dest: "/root/staging/bin/"
