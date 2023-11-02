@@ -66,7 +66,7 @@ pwnagotchi_version = version(VERSION_FILE)
 
 setup(name='pwnagotchi',
       version=pwnagotchi_version,
-      description='(⌐■_■) - Deep Reinforcement Learning instrumenting bettercap for WiFI pwning.',
+      description='(⌐■_■) - Deep Reinforcement Learning instrumenting bettercap for WiFI pwning. Snifflupagus version',
       author='evilsocket && the dev team',
       author_email='evilsocket@gmail.com',
       url='https://pwnagotchi.ai/',
