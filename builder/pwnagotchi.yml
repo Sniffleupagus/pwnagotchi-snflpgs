@@ -228,10 +228,12 @@
           - libavformat59
           - libswscale6
           - libtiff6
+          - python3-spidev
+          - spi-tools
   environment:
     #ARCHFLAGS: -arch armv6l
     #QEMU_CPU: arm1176
-    #QEMU_UNAME: "{{ kernel.full_opi }}"
+    #QEMU_UNAME: "{{ kernel.full }}"
 
   tasks:
 
@@ -245,7 +247,7 @@
       - no_orangepi
 
   - name: check uname -m just to be sure
-    shell: "uname -m && uname -a && ls -l"
+    shell: "uname -m && uname -a && ls -l /lib/modules && sudo uname -a"
     args:
       executable: /bin/bash
       chdir: /usr/local/src
@@ -273,15 +275,27 @@
     tags:
       - base
 
-  - name: disable sap plugin for bluetooth.service
+  - name: disable sap plugin for bluetooth.service in /usr/lib
     lineinfile:
       dest: /lib/systemd/system/bluetooth.service
-      regexp: '^ExecStart=/usr/lib(exec)?/bluetooth/bluetoothd$'
+      regexp: '^ExecStart=/usr/lib/bluetooth/bluetoothd$'
       line: 'ExecStart=/usr/lib/bluetooth/bluetoothd --noplugin=sap'
       state: present
     tags:
       - base
       - no_orangepi
+    ignore_errors: true
+
+  - name: disable sap plugin for bluetooth.service in /usr/libexec
+    lineinfile:
+      dest: /lib/systemd/system/bluetooth.service
+      regexp: '^ExecStart=/usr/libexec/bluetooth/bluetoothd$'
+      line: 'ExecStart=/usr/libexec/bluetooth/bluetoothd --noplugin=sap'
+      state: present
+    tags:
+      - base
+      - no_orangepi
+    ignore_errors: true
 
   - name: configure dphys-swapfile
     lineinfile:
@@ -418,40 +432,44 @@
     tags: pwnagotchi
 
   - name: install 32-bit pwnagotchi wheel and dependencies with 32-bit torch wheels
+    retries: 3
+    delay: 10
     pip:
       name:
         - "{{ lookup('fileglob', '/usr/local/src/pwnagotchi/dist/pwnagotchi*.whl') }}"
         - "{{ packages.torch.url }}"
         - "{{ packages.torchvision.url }}"
-      extra_args: "--no-cache-dir"
     environment:
       #QEMU_CPU: arm1176
-      QEMU_UNAME: "{{ kernel.full }}"
+      #QEMU_UNAME: "{{ kernel.full }}"
     when: (pwnagotchigit.changed) or (pip_packages['pwnagotchi'] is undefined) or (pip_packages['pwnagotchi'] != pwnagotchi_version)
     tags:
       - pwnagotchi
       - only32
+    register: result
+    until: result is not failed
 
   - name: install 64-bit pwnagotchi wheel and dependencies
+    retries: 3
+    delay: 10
     pip:
       name:
         - "{{ lookup('fileglob', '/usr/local/src/pwnagotchi/dist/pwnagotchi*.whl') }}"
-      extra_args: "--no-cache-dir"
     environment:
-      QEMU_UNAME: "{{ kernel.full }}"
+      #QEMU_UNAME: "{{ kernel.full }}"
     when: (pwnagotchigit.changed) or (pip_packages['pwnagotchi'] is undefined) or (pip_packages['pwnagotchi'] != pwnagotchi_version)
     tags:
       - pwnagotchi
       - only64
       - no_orangepi
+    register: result
+    until: result is not failed
 
   - name: install 64-bit pwnagotchi wheel and dependencies (--break-system-packages)
     pip:
       name:
         - "{{ lookup('fileglob', '/usr/local/src/pwnagotchi/dist/pwnagotchi*.whl') }}"
       extra_args: "--no-cache-dir --break-system-packages"
-    environment:
-      QEMU_UNAME: "{{ kernel.full }}"
     when: (pwnagotchigit.changed) or (pip_packages['pwnagotchi'] is undefined) or (pip_packages['pwnagotchi'] != pwnagotchi_version)
     tags:
       - pwnagotchi
@@ -635,277 +653,292 @@
 
   - name: install pi crontab
     tags: pwnagotchi
-    command: "crontab -u pi /tmp/pi-crontab"
+    command: "crontab -u pi /tmp/pi_crontab"
     args:
       chdir: /tmp
-    register: pi-crontab
+    register: pi_crontab
     ignore_errors: true
 
-  - name: delete /tmp/pi-crontab
+  - name: delete /tmp/pi_crontab
     tags: pwnagotchi
     file:
       state: absent
-      path: /tmp/pi-crontab
-    
-  - name: Delete motd 10-uname
-    file:
-      state: absent
-      path: /etc/update-motd.d/10-uname
+      path: /tmp/pi_crontab
 
-  - name: enable ssh on boot
-    file:
-      path: /boot/ssh
-      state: touch
-    tags: base
-
-  - name: disable wlan0 in dhcpcd.conf
-    lineinfile:
-      dest: /etc/dhcpcd.conf
-      insertafter: EOF
-      line: "denyinterfaces wlan0"
-    tags:
-      - base
-      - no_orangepi
-
-  - name: adjust /boot/config.txt
-    lineinfile:
-      dest: /boot/config.txt
-      insertafter: EOF
-      line: '{{ item }}'
-    with_items: "{{system.boot_options}}"
-    tags:
-      - pwnagotchi
-      - no_orangepi
-
-  - name: adjust /etc/modules
-    lineinfile:
-      dest: /etc/modules
-      insertafter: EOF
-      line: '{{ item }}'
-    with_items: "{{system.modules}}"
-    tags:
-      - pwnagotchi
-      - no_orangepi
-
-  - name: change root partition
-    replace:
-      dest: /boot/cmdline.txt
-      backup: no
-      regexp: "root=PARTUUID=[a-zA-Z0-9\\-]+"
-      replace: "root=/dev/mmcblk0p2"
-    tags:
-      - base
-      - no_orangepi
-
-  - name: configure /boot/cmdline.txt
-    lineinfile:
-      path: /boot/cmdline.txt
-      backrefs: True
-      state: present
-      backup: no
-      regexp: '(.*)$'
-      line: '\1 modules-load=dwc2,g_ether'
-    tags:
-      - pwnagotchi
-      - no_orangepi
-
-
-  - name: configure g_ether options for repeatable RNDIS device
-    copy:
-      dest: /etc/modprobe.d/g_ether.conf
-      content: "options g_ether use_eem=0 host_addr=f0:0d:ba:be:f0:0d dev_addr=58:70:77:6e:79:58"
-    tags:
-      - no_orangepi
-
-  - name: clone Sniffleupagus pwny utils
-    git:
-      repo: https://github.com/Sniffleupagus/pwnagotchi-utils.git
-      dest: /home/pi/git/pwnagotchi-utils
-    register: sniffleupagus_utils_fetched
-    tags: pwnagotchi
-
-  - name: grab list of utils
-    ansible.builtin.find:
-      paths: /home/pi/git/pwnagotchi-utils
-      patterns: '*.py'
-      recurse: no
-    register: sniffleupagus_utils
-    tags: pwnagotchi
-
-  - name: Create home bin directory
-    file:
-      path: /home/pi/bin
-      mode: '755'
-      owner: 'pi'
-      group: 'pi'
-      state: directory
-    tags: pwnagotchi
-
-  - name: copy to /home/pi/bin
-    ansible.builtin.copy:
-      src: '{{ item.path }}'
-      dest: '/home/pi/bin/'
-      follow: yes
-      mode: '755'
-      owner: 'pi'
-      group: 'pi'
-    with_items: '{{ sniffleupagus_utils.files }}'
-    tags: pwnagotchi
-
-  ####################
-  # Custom plugins
-  ####################
-  - name: Create custom plugin directory
-    file:
-      path: '{{ pwnagotchi.custom_plugin_dir }}'
-      state: directory
-    tags:
-      - pwnagotchi
-
-  # evil socket plugins
-  - name: clone pwnagotchi community plugin repository
-    git:
-      repo: https://github.com/evilsocket/pwnagotchi-plugins-contrib.git
-      dest: /usr/local/src/pwnagotchi-plugins-contrib
-    register: evilsocket_plugins_fetched
-    tags: pwnagotchi
-
-  - name: grab list of plugins
-    ansible.builtin.find:
-      paths: /usr/local/src/pwnagotchi-plugins-contrib
-      patterns: '*.py'
-      recurse: no
-    register: evilsocket_plugins
-    tags: pwnagotchi
-
-  - name: copy to custom plugins
-    ansible.builtin.copy:
-      src: '{{ item.path }}'
-      dest: '{{ pwnagotchi.custom_plugin_dir }}'
-      follow: yes
-    with_items: '{{ evilsocket_plugins.files }}'
+  - name: End of build setup block - ignoring errors to see what works and what does not work
     ignore_errors: true
-    tags: pwnagotchi
-    
-  # MORE plugins
-  - name: clone Sniffleupagus plugins
-    git:
-      repo: https://github.com/Sniffleupagus/pwnagotchi_plugins.git
-      dest: /home/pi/git/pwnagotchi_plugins
-    register: sniffleupagus_plugins_fetched
-    tags: pwnagotchi
+    block:
+      - name: Delete motd 10-uname
+        file:
+          state: absent
+          path: /etc/update-motd.d/10-uname
 
-  - name: grab list of plugins
-    ansible.builtin.find:
-      paths: /home/pi/git/pwnagotchi_plugins
-      patterns: '*.py'
-      recurse: no
-    register: sniffleupagus_plugins
-    tags: pwnagotchi
+      - name: enable ssh on boot
+        file:
+          path: /boot/ssh
+          state: touch
+        tags: base
 
-  - name: copy to custom plugins
-    ansible.builtin.copy:
-      src: '{{ item.path }}'
-      dest: '{{ pwnagotchi.custom_plugin_dir }}'
-      follow: yes
-    with_items: '{{ sniffleupagus_plugins.files }}'
-    tags: pwnagotchi
-    
-  - name: Add pwnlog alias
-    lineinfile:
-      dest: /home/pi/.bashrc
-      line: "\nalias pwnlog='tail -f -n300 /var/log/pwn*.log | sed --unbuffered \"s/,[[:digit:]]\\{3\\}\\]//g\" | cut -d \" \" -f 2-'"
-      insertafter: EOF
-    tags: pwnagotchi
+      - name: disable wlan0 in dhcpcd.conf
+        lineinfile:
+          dest: /etc/dhcpcd.conf
+          insertafter: EOF
+          line: "denyinterfaces wlan0"
+        tags:
+          - base
+          - no_orangepi
 
-  - name: Add pwnver alias
-    lineinfile:
-      dest: /home/pi/.bashrc
-      line: "\nalias pwnver='python3 -c \"import pwnagotchi as p; print(p.__version__)\"'"
-      insertafter: EOF
-    tags: pwnagotchi
+      - name: adjust /boot/config.txt
+        lineinfile:
+          dest: /boot/config.txt
+          insertafter: EOF
+          line: '{{ item }}'
+        with_items: "{{system.boot_options}}"
+        tags:
+          - pwnagotchi
+          - no_orangepi
 
-  - name: Add pwnkill alias to restart pwnagotchi with a signal
-    lineinfile:
-      dest: /home/pi/.bashrc
-      line: "\nalias pwnkill='sudo killall -USR1 pwnagotchi'"
-      insertafter: EOF
-    tags: pwnagotchi
+      - name: adjust /etc/modules
+        lineinfile:
+          dest: /etc/modules
+          insertafter: EOF
+          line: '{{ item }}'
+        with_items: "{{system.modules}}"
+        tags:
+          - pwnagotchi
+          - no_orangepi
 
-  - name: add firmware packages to hold
-    dpkg_selections:
-      name: "{{ item }}"
-      selection: hold
-    with_items: "{{ packages.apt.hold }}"
+      - name: change root partition
+        replace:
+          dest: /boot/cmdline.txt
+          backup: no
+          regexp: "root=PARTUUID=[a-zA-Z0-9\\-]+"
+          replace: "root=/dev/mmcblk0p2"
+        tags:
+          - base
+          - no_orangepi
 
-  - name: disable unnecessary services
-    systemd:
-      name: "{{ item }}"
-      state: stopped
-      enabled: no
-    with_items: "{{ services.disable }}"
+      - name: configure /boot/cmdline.txt
+        lineinfile:
+          path: /boot/cmdline.txt
+          backrefs: True
+          state: present
+          backup: no
+          regexp: '(.*)$'
+          line: '\1 modules-load=dwc2,g_ether'
+        tags:
+          - pwnagotchi
+          - no_orangepi
 
-  - name: enable services
-    systemd:
-      name: "{{ item }}"
-      enabled: true
-      state: stopped
-    with_items: "{{ services.enable }}"
-    tags: pwnagotchi
 
-  - name: remove golang build libraries
-    file:
-      state: absent
-      path: /root/go
+      - name: configure g_ether options for repeatable RNDIS device
+        copy:
+          dest: /etc/modprobe.d/g_ether.conf
+          content: "options g_ether use_eem=0 host_addr=f0:0d:ba:be:f0:0d dev_addr=58:70:77:6e:79:58"
+        tags:
+          - no_orangepi
 
-  - name: remove pre-collected packages zip
-    file:
-      path: /root/go_pkgs.tgz
-      state: absent
-      
-  - name: remove golang
-    file:
-      state: absent
-      path: /usr/local/go
+      - name: clone Sniffleupagus pwny utils
+        git:
+          repo: https://github.com/Sniffleupagus/pwnagotchi-utils.git
+          dest: /home/pi/git/pwnagotchi-utils
+        register: sniffleupagus_utils_fetched
+        tags: pwnagotchi
 
-  - name: make /root readable, becauase that's where all the files are
-    file:
-      path: /root
-      mode: '755'
+      - name: grab list of utils
+        ansible.builtin.find:
+          paths: /home/pi/git/pwnagotchi-utils
+          patterns: '*.py'
+          recurse: no
+        register: sniffleupagus_utils
+        tags: pwnagotchi
 
-  - name: fix permissions on /home/pi
-    file:
-      path: /home/pi
-      owner: pi
-      group: pi
-      recurse: true
+      - name: Create home bin directory
+        file:
+          path: /home/pi/bin
+          mode: '755'
+          owner: 'pi'
+          group: 'pi'
+          state: directory
+        tags: pwnagotchi
 
-  - name: remove unnecessary apt packages
-    apt:
-      name: "{{ packages.apt.remove }}"
-      state: absent
-      purge: yes
+      - name: copy to /home/pi/bin
+        ansible.builtin.copy:
+          src: '{{ item.path }}'
+          dest: '/home/pi/bin/'
+          follow: yes
+          mode: '755'
+          owner: 'pi'
+          group: 'pi'
+        with_items: '{{ sniffleupagus_utils.files }}'
+        tags: pwnagotchi
 
-  - name: remove dependencies that are no longer required
-    apt:
-      autoremove: yes
+      ####################
+      # Custom plugins
+      ####################
+      - name: Create custom plugin directory
+        file:
+          path: '{{ pwnagotchi.custom_plugin_dir }}'
+          state: directory
+        tags:
+          - pwnagotchi
 
-  - name: clean apt cache
-    apt:
-      autoclean: true
+      # evil socket plugins
+      - name: clone pwnagotchi community plugin repository
+        git:
+          repo: https://github.com/evilsocket/pwnagotchi-plugins-contrib.git
+          dest: /usr/local/src/pwnagotchi-plugins-contrib
+        register: evilsocket_plugins_fetched
+        tags: pwnagotchi
 
-  - name: remove apt package cache
-    shell: "apt clean"
-    args:
-      executable: /bin/bash
-      chdir: /usr/local/src
+      - name: grab list of plugins
+        ansible.builtin.find:
+          paths: /usr/local/src/pwnagotchi-plugins-contrib
+          patterns: '*.py'
+          recurse: no
+        register: evilsocket_plugins
+        tags: pwnagotchi
 
-  - name: remove /root/.cache (pip cache)
-    file:
-      state: absent
-      path: /root/.cache
+      - name: copy to custom plugins
+        ansible.builtin.copy:
+          src: '{{ item.path }}'
+          dest: '{{ pwnagotchi.custom_plugin_dir }}'
+          follow: yes
+        with_items: '{{ evilsocket_plugins.files }}'
+        ignore_errors: true
+        tags: pwnagotchi
+
+      # MORE plugins
+      - name: clone Sniffleupagus plugins
+        git:
+          repo: https://github.com/Sniffleupagus/pwnagotchi_plugins.git
+          dest: /home/pi/git/pwnagotchi_plugins
+        register: sniffleupagus_plugins_fetched
+        tags: pwnagotchi
+
+      - name: grab list of plugins
+        ansible.builtin.find:
+          paths: /home/pi/git/pwnagotchi_plugins
+          patterns: '*.py'
+          recurse: no
+        register: sniffleupagus_plugins
+        tags: pwnagotchi
+
+      - name: copy to custom plugins
+        ansible.builtin.copy:
+          src: '{{ item.path }}'
+          dest: '{{ pwnagotchi.custom_plugin_dir }}'
+          follow: yes
+        with_items: '{{ sniffleupagus_plugins.files }}'
+        tags: pwnagotchi
+
+      - name: Add pwnlog alias
+        lineinfile:
+          dest: /home/pi/.bashrc
+          line: "\nalias pwnlog='tail -f -n300 /var/log/pwn*.log | sed --unbuffered \"s/,[[:digit:]]\\{3\\}\\]//g\" | cut -d \" \" -f 2-'"
+          insertafter: EOF
+        tags: pwnagotchi
+
+      - name: Add pwnver alias
+        lineinfile:
+          dest: /home/pi/.bashrc
+          line: "\nalias pwnver='python3 -c \"import pwnagotchi as p; print(p.__version__)\"'"
+          insertafter: EOF
+        tags: pwnagotchi
+
+      - name: Add pwnkill alias to restart pwnagotchi with a signal
+        lineinfile:
+          dest: /home/pi/.bashrc
+          line: "\nalias pwnkill='sudo killall -USR1 pwnagotchi'"
+          insertafter: EOF
+        tags: pwnagotchi
+
+      - name: add firmware packages to hold
+        dpkg_selections:
+          name: "{{ item }}"
+          selection: hold
+        with_items: "{{ packages.apt.hold }}"
+
+      - name: disable unnecessary services
+        systemd:
+          name: "{{ item }}"
+          state: stopped
+          enabled: no
+        with_items: "{{ services.disable }}"
+
+      - name: enable services
+        systemd:
+          name: "{{ item }}"
+          enabled: true
+          state: stopped
+        with_items: "{{ services.enable }}"
+        tags: pwnagotchi
+
+      - name: remove golang build libraries
+        file:
+          state: absent
+          path: /root/go
+
+      - name: remove pre-collected packages zip
+        file:
+          path: /root/go_pkgs.tgz
+          state: absent
+
+      - name: remove golang
+        file:
+          state: absent
+          path: /usr/local/go
+
+      - name: make /root readable, becauase that's where all the files are
+        file:
+          path: /root
+          mode: '755'
+
+      - name: fix permissions on /home/pi
+        file:
+          path: /home/pi
+          owner: pi
+          group: pi
+          recurse: true
+
+      - name: remove unnecessary apt packages
+        apt:
+          name: "{{ packages.apt.remove }}"
+          state: absent
+          purge: yes
+
+      - name: remove dependencies that are no longer required
+        apt:
+          autoremove: yes
+
+      - name: clean apt cache
+        apt:
+          autoclean: true
+
+      - name: remove apt package cache
+        shell: "apt clean"
+        args:
+          executable: /bin/bash
+          chdir: /usr/local/src
+
+      - name: remove /root/.cache (pip cache)
+        file:
+          state: absent
+          path: /root/.cache
+
+      - name: remove ssh keys
+        file:
+          state: absent
+          path: "{{ item }}"
+        with_fileglob:
+          - "/etc/ssh/ssh_host*_key*"
+
+      - name: regenerate ssh keys
+        shell: "dpkg-reconfigure openssh-server"
+        args:
+          executable: /bin/bash
 
   handlers:
-  - name: reload systemd services
-    systemd:
-      daemon_reload: yes
+    - name: reload systemd services
+      systemd:
+        daemon_reload: yes
