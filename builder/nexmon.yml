@@ -140,49 +140,47 @@
 
     # end of nexmon build block. products should now be in staging if they were not already
 
-    # check again, just to be sure
-    - name: "Check for staged firmware {{ item.firmware }}"
-      stat: path="{{ staging }}/firmware/{{ item.firmware }}"
-      register: firmware
+# check presence again, just to be sure
+- name: "Check for staged firmware {{ item.firmware }}"
+  stat: path="{{ staging }}/firmware/{{ item.firmware }}"
+  register: firmware
 
-    # install nexmon firmware from staging directory
-    - name: 'install nexmon firmware {{ item.firmware }}'
-      when: firmware.stat.exists
-      block:
-        - name: "Install nexmon firware in /usr/lib/firmware/brcm"
-          copy:
-            src: '{{ staging }}/firmware/{{ item.firmware }}'
-            dest: '/usr/lib/firmware/brcm/{{ item.firmware }}'
-            follow: true
+# install nexmon firmware from staging directory
+- name: 'install nexmon firmware {{ item.firmware }}'
+  when: firmware.stat.exists
+  copy:
+    src: '{{ staging }}/firmware/{{ item.firmware }}'
+    dest: '/usr/lib/firmware/brcm/{{ item.firmware }}'
+    follow: true
 
-    - name: "Check for staged kernel module {{ item.kernel }}/brcmfmac.ko"
-      stat: path="{{ staging }}/modules/{{ item.kernel }}/brcmfmac.ko"
-      register: kmodule
+- name: "Check for staged kernel module {{ item.kernel }}/brcmfmac.ko"
+  stat: path="{{ staging }}/modules/{{ item.kernel }}/brcmfmac.ko"
+  register: kmodule
 
-    - name: "Install kernel module {{ item.kernel }}/brcmfmac.ko from staging"
-      when: kmodule.stat.exists
-      block:  
-        # remove originals, and keep track
-        - name: "Remove old compressed kernel module (if there)"
-          file:
-            state: absent
-            path: "/usr/lib/modules/{{ item.kernel }}/kernel/drivers/net/wireless/broadcom/brcm80211/brcmfmac/brcmfmac.ko.xz"
-          register: brcmfmac_ko_xz
-          ignore_errors: true
+- name: "Install kernel module {{ item.kernel }}/brcmfmac.ko from staging"
+  when: kmodule.stat.exists
+  block:  
+    # remove originals, and keep track
+    - name: "Remove old compressed kernel module (if there)"
+      file:
+        state: absent
+        path: "/usr/lib/modules/{{ item.kernel }}/kernel/drivers/net/wireless/broadcom/brcm80211/brcmfmac/brcmfmac.ko.xz"
+      register: brcmfmac_ko_xz
+      ignore_errors: true
 
-        - name: "Remove old uncompressed kernel module (if there)"
-          file:
-            state: absent
-            path: "/usr/lib/modules/{{ item.kernel }}/kernel/drivers/net/wireless/broadcom/brcm80211/brcmfmac/brcmfmac.ko"
-          register: brcmfmac_ko
-          ignore_errors: true
+    - name: "Remove old uncompressed kernel module (if there)"
+      file:
+        state: absent
+        path: "/usr/lib/modules/{{ item.kernel }}/kernel/drivers/net/wireless/broadcom/brcm80211/brcmfmac/brcmfmac.ko"
+      register: brcmfmac_ko
+      ignore_errors: true
 
-        - name: "install nexmon kernel driver {{item.kernel}}"
-          copy:
-            src: "{{ staging }}/modules/{{ item.kernel }}/brcmfmac.ko"
-            dest: "/usr/lib/modules/{{ item.kernel }}/kernel/drivers/net/wireless/broadcom/brcm80211/brcmfmac/brcmfmac.ko"
-            follow: true
-          register: brcmfmac_installed
+    - name: "install nexmon kernel driver {{item.kernel}}"
+      copy:
+        src: "{{ staging }}/modules/{{ item.kernel }}/brcmfmac.ko"
+        dest: "/usr/lib/modules/{{ item.kernel }}/kernel/drivers/net/wireless/broadcom/brcm80211/brcmfmac/brcmfmac.ko"
+        follow: true
+      register: brcmfmac_installed
 
     - name: "xz compress driver: {{brcmfmac_ko_xz.changed}}"
       when: brcmfmac_ko_xz.changed
@@ -199,19 +197,19 @@
     - name: update module dependencies
       command: "/sbin/depmod -a {{ item.kernel }}"
 
-  # check for presence of /usr/local/bin/nexutil and skip this if they do
-  # move into the nexmon.yml because what if we didn't install the repo?
-    # nexutil command line utility
-    - name: "Check for {{ staging }}/bin/nexutil"
-      stat: path="{{ staging }}/bin/nexutil"
-      register: nexutil
+# check for presence of /usr/local/bin/nexutil and skip this if they do
+# move into the nexmon.yml because what if we didn't install the repo?
+# nexutil command line utility
+- name: "Check for {{ staging }}/bin/nexutil"
+  stat: path="{{ staging }}/bin/nexutil"
+  register: nexutil
 
-    # install from staging
-    - name: "Install {{ staging}}/bin/nexutil to /usr/local/bin"
-      when: nexutil.stat.exists
-      copy:
-        src: "{{ staging }}/bin/nexutil"
-        dest: /usr/local/bin/
-        mode: '755'
-        follow: true
+# install from staging
+- name: "Install {{ staging}}/bin/nexutil to /usr/local/bin"
+  when: nexutil.stat.exists
+  copy:
+    src: "{{ staging }}/bin/nexutil"
+    dest: /usr/local/bin/
+    mode: '755'
+    follow: true
 
