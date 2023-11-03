@@ -60,12 +60,12 @@
   - name: make bin staging dir
     file:
       state: directory
-      path: "/root/staging/bin"
+      path: "{{staging}}/bin"
 
   - name: "copy built {{item.name}} binary to staging directory"
     copy:
       src: '/usr/local/bin/{{ item.name }}'
-      dest: "/root/staging/bin/"
+      dest: "{{staging}}/bin/"
           
   - name: remove build folder
     file:
