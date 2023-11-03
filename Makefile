@@ -36,7 +36,7 @@ langs:
 		./scripts/language.sh compile $$(basename $$lang); \
 	done
 
-PACKER := /tmp/pwnagotchi/packer
+PACKER := /usr/bin/packer
 PACKER_URL := https://releases.hashicorp.com/packer/$(PACKER_VERSION)/packer_$(PACKER_VERSION)_linux_$(GOARCH).zip
 $(PACKER):
 	mkdir -p $(@D)
@@ -74,6 +74,11 @@ image64: $(SDIST) builder/pwnagotchi.json.pkr.hcl builder/pwnagotchi.yml $(shell
 orangepi02w: $(SDIST) builder/pwnagotchi.json.pkr.hcl builder/pwnagotchi.yml $(shell find builder/data -type f)
 	$(PACKER) plugins install github.com/solo-io/arm-image
 	cd builder && $(UNSHARE) $(PACKER) build -on-error=abort -var "pwn_hostname=$(PWN_HOSTNAME)" -var "pwn_version=$(PWN_VERSION)" -only=\*.orangepwn02w pwnagotchi.json.pkr.hcl
+
+images: $(SDIST) builder/pwnagotchi.json.pkr.hcl builder/pwnagotchi.yml $(shell find builder/data -type f)
+	$(PACKER) plugins install github.com/solo-io/arm-image
+	cd builder && $(UNSHARE) $(PACKER) build -on-error=abort -var "pwn_hostname=$(PWN_HOSTNAME)" -var "pwn_version=$(PWN_VERSION)" -only=\*.pwnagotchi64,\*.pwnagotchi pwnagotchi.json.pkr.hcl
+
 
 # If any of these files are updated, rebuild the checksums.
 $(PWN_RELEASE).sha256: $(PWN_RELEASE).img
