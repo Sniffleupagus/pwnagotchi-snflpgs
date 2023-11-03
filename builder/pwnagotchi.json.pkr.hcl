@@ -55,6 +55,7 @@ source "arm-image" "orangepwn02w" {
   iso_url           = "file:/vagrant/Orangepizero2w_1.0.0_debian_bookworm_server_linux6.1.31.img"
   image_type        = "armbian"
   output_filename   = "/root/pwnagotchi-${var.pwn_version}-orangepi02w.img"
+  qemu_args         = ["-r", "6.1.31-sun50iw9"]
   image_arch        = "arm64"
   target_image_size = 9368709120
 }
@@ -133,7 +134,7 @@ build {
     override = {
       "orangepwn02w" = {
 	inline = [
-	  "echo Skip nstall kernel headers",
+	  "echo Skip install kernel headers",
 	  "#apt install linux-headers-$(uname -r)",
 	  "echo '>>>-----> APT UPDATE <-----<<<'",
 	  "apt-get -y --allow-releaseinfo-change update",
@@ -173,12 +174,12 @@ build {
       "pwnagotchi64" = {
 	extra_arguments = [
 	  "--extra-vars \"ansible_python_interpreter=/usr/bin/python3\"",
-	  "-vvv",
+	  "-vv",
 	  "--skip-tags", "only32,no_raspi"
 	] },
       "orangepwn02w" = {
 	extra_arguments = [
-	  "--extra-vars \"ansible_python_interpreter=/usr/bin/python3\"",
+	  "--extra-vars \"ansible_python_interpreter=/usr/bin/python3 kernel.full=6.1.31-sun50iw9\"",
 	  "-vvv",
 	  "--skip-tags", "only32,no_orangepi"
 	] }
