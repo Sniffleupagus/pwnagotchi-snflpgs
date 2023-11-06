@@ -319,6 +319,8 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                 if restart_monitor:
                     logging.info("resetting bettercap is so fetch")
                     self._reset_wifi_settings()
+                    if self.mode != 'manual':
+                        self.run('wifi.recon on')
                     restart_monitor = False
             except Exception as err:
                 logging.error("[agent:_fetch_stats] self.session: %s" % repr(err))
