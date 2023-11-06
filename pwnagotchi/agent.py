@@ -311,11 +311,18 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
 
 
     def _fetch_stats(self):
+        # adding bettercap watchdog here
+        restart_monitor = False
         while True:
             try:
                 s = self.session()
+                if restart_monitor:
+                    logging.info("resetting bettercap is so fetch")
+                    self._reset_wifi_settings()
+                    restart_monitor = False
             except Exception as err:
                 logging.error("[agent:_fetch_stats] self.session: %s" % repr(err))
+                restart_monitor = True
 
             try:
                 self._update_uptime(s)
