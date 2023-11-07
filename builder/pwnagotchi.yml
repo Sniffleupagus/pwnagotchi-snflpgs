@@ -65,21 +65,30 @@
       hostname: "{{ lookup('env', 'PWN_HOSTNAME') | default('pwnagotchi', true) }}"
       version: "{{ lookup('env', 'PWN_VERSION') | default('pwnagotchi-torch', true) }}"
       custom_plugin_dir: "/usr/local/share/pwnagotchi/custom-plugins"
+      display:
+        type: "displayhatmini"
+        enabled: "true"
     system:
       boot_options:
         - "#### pwnagotchi additions"
-        - "# this pwnagotchi image is 32-bit only no v8+ headers to build nexmon for 64 bit"
+        - ""
         - "# dwc2 for RNDIS. comment out, and remove dwc2 and g_ether from cmdline.txt for X306 usb battery hat"
         - "dtoverlay=dwc2"
+        - ""
+        - "# enable i2c and spi for screens"
         - "dtoverlay=spi1-3cs"
         - "dtparam=i2c1=on"
         - "dtparam=i2c_arm=on"
         - "dtparam=spi=on"
+        - ""
         - "gpu_mem=16"
+        - ""
         - "#### audio out on pins 18 and 19"
         - "#dtoverlay=audremap,pins_18_19"
+        - ""
         - "#### touchscreen on waveshare touch e-paper"
         - "#dtoverlay=goodix,interrupt=27,reset=22"
+        - ""
         - "#### for PWM backlighting on pimoroni displayhatmini"
         - "dtoverlay=pwm-2chan,pin=12,func=4,pin2=13,func2=4"
       modules:
@@ -115,23 +124,12 @@
 
       apt:
         downgrade:
-          # the kali .debs do not work on raspberry pi zero on raspiOS
-          # so install from source later. probably good idea on all platforms
-          #- libpcap-dev_1.9.1-4_armel.deb
-          #- libpcap0.8-dev_1.9.1-4_armel.deb
-          #- libpcap0.8_1.9.1-4_armel.deb
         hold:
           - firmware-atheros
           - firmware-brcm80211
           - firmware-libertas
           - firmware-misc-nonfree
           - firmware-realtek
-          # no longer need to be held. build from source goes in /usr/local
-          # Then bettercap and pwngrid are pointed at it at runtime with LD_LIBRARY_PATH
-          # and LD_PRELOAD
-          # - libpcap-dev
-          # - libpcap0.8
-          # - libpcap0.8-dev
         remove:
           - nfs-common
           - raspberrypi-net-mods
@@ -236,6 +234,9 @@
     #QEMU_UNAME: "{{ kernel.full }}"
 
   tasks:
+  - name: Print all available facts
+    ansible.builtin.debug:
+      var: ansible_facts
 
   - name: Create pi user, default password pwny1234
     copy:
@@ -355,7 +356,7 @@
   # check for presence, then it can re-run in later parts if needed
   # use the "make" built in
   - name: check for /usr/local/lib/libpcap.so.1
-    stat: path=/usr/local/lib/lib/libpcap.so.1
+    stat: path=/usr/local/lib/libpcap.so.1
     register: libpcap_so
 
   - name: Build and install libpcap v1.9
@@ -487,13 +488,7 @@
       dest: "{{ staging }}/wheels"
     tags: pwnagotchi
 
-  - name: create /usr/local/share/pwnagotchi/ folder
-    file:
-      path: /usr/local/share/pwnagotchi/
-      state: directory
-    tags: pwnagotchi
-
-  - name: remove pwnagotchi folder
+  - name: remove pwnagotchi build folder
     file:
       state: absent
       path: /usr/local/src/pwnagotchi
@@ -582,16 +577,22 @@
       state: directory
     tags: pwnagotchi
 
+  - name: create /boot/pwnagotchi folder
+    file:
+      path: /boot/pwnagotchi
+      state: directory
+    tags: pwnagotchi
+
   - name: check if user configuration exists
     stat:
       path: /etc/pwnagotchi/config.toml
     register: user_config
     tags: pwnagotchi
 
-  - name: create /etc/pwnagotchi/config.toml
+  - name: create /boot/pwnagotchi/config.toml
     tags: pwnagotchi
     copy:
-      dest: /etc/pwnagotchi/config.toml
+      dest: /boot/pwnagotchi/config.toml
       content: |
         # Add your configuration overrides on this file any configuration changes done to default.toml will be lost!
         # Example:
@@ -599,12 +600,15 @@
         # use these to log into the web UI
         ui.web.username = "changeme"
         ui.web.password = "changeme"
-        ui.display.enabled = true
-        ui.display.type = "displayhatmini"
+        ui.display.enabled = {{pwnagotchi.display.enabled}}
+        ui.display.type = "{{ pwnagotchi.display.type }}"
         main.custom_plugins = "{{ pwnagotchi.custom_plugin_dir }}"
         main.plugins.led.enabled = false
+        main.plugins.auto-update.enabled = false
         main.plugins.morse_code.enabled = true
         personality.deauth = false
+        personality.throttle_a = 0.4
+        personality.throttle_d = 0.9
         ui.backgroundcolor="#000000"
         ui.foregroundcolor="#ffffff"
         ui.colormode="RGB"
@@ -658,6 +662,18 @@
       chdir: /tmp
     register: pi_crontab
     ignore_errors: true
+    tags:
+      - no_orangepi
+
+  - name: install orangepi crontab
+    tags: pwnagotchi
+    command: "crontab -u orangepi /tmp/pi_crontab"
+    args:
+      chdir: /tmp
+    register: orangepi_crontab
+    ignore_errors: true
+    tags:
+      - no_raspi
 
   - name: delete /tmp/pi_crontab
     tags: pwnagotchi
