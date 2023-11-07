@@ -19,23 +19,23 @@ variable "pwn_version" {
 source "arm-image" "base-image" {
   iso_checksum      = "file:https://downloads.raspberrypi.org/raspios_lite_armhf/images/raspios_lite_armhf-2023-05-03/2023-05-03-raspios-bullseye-armhf-lite.img.xz.sha256"
   iso_url           = "https://downloads.raspberrypi.org/raspios_lite_armhf/images/raspios_lite_armhf-2023-05-03/2023-05-03-raspios-bullseye-armhf-lite.img.xz"
-  output_filename   = "../../base_raspios-bullseye-armhf.img"
+  output_filename   = "/root/base_raspios-bullseye-armhf.img"
   qemu_args         = ["-cpu", "arm1176"]
   image_arch        = "arm"
-  target_image_size = 6368709120
+  target_image_size = 9368709120
 }
 
 source "arm-image" "base64-image" {
   iso_checksum      = "file:https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2023-05-03/2023-05-03-raspios-bullseye-arm64-lite.img.xz.sha256"
   iso_url           = "https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2023-05-03/2023-05-03-raspios-bullseye-arm64-lite.img.xz"
-  output_filename   = "/root/base_raspios-bullseye-aarch64.img.new"
+  output_filename   = "/root/base_raspios-bullseye-aarch64.img"
   image_arch        = "arm64"
-  target_image_size = 6368709120
+  target_image_size = 9368709120
 }
 
 source "arm-image" "pwnagotchi" {
   iso_checksum      = "file:/root/base_raspios-bullseye-armhf.img.xz.sha256"
-  iso_url           = "/root/base_raspios-bullseye-armhf.img.xz"
+  iso_url           = "file:/root/base_raspios-bullseye-armhf.img.xz"
   output_filename   = "/root/pwnagotchi-${var.pwn_version}-armhf.img"
   qemu_args         = ["-cpu", "arm1176"]
   image_arch        = "arm"
@@ -43,16 +43,16 @@ source "arm-image" "pwnagotchi" {
 }
 
 source "arm-image" "pwnagotchi64" {
-  iso_checksum      = "file:https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2023-05-03/2023-05-03-raspios-bullseye-arm64-lite.img.xz.sha256"
-  iso_url           = "https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2023-05-03/2023-05-03-raspios-bullseye-arm64-lite.img.xz"
+  iso_checksum      = "file:/root/base_raspios-bullseye-aarch64.img.xz.sha256"
+  iso_url           = "file:/root/base_raspios-bullseye-aarch64.img.xz"
   output_filename   = "/root/pwnagotchi-${var.pwn_version}-aarch64.img"
   image_arch        = "arm64"
   target_image_size = 9368709120
 }
 
 source "arm-image" "orangepwn02w" {
-  iso_checksum      = "file:/vagrant/Orangepizero2w_1.0.0_debian_bookworm_server_linux6.1.31.img.sha"
-  iso_url           = "file:/vagrant/Orangepizero2w_1.0.0_debian_bookworm_server_linux6.1.31.img"
+  iso_checksum      = "file:/vagrant_data/Orangepizero2w_1.0.0_debian_bookworm_server_linux6.1.31.img.sha"
+  iso_url           = "file:/vagrant_data/Orangepizero2w_1.0.0_debian_bookworm_server_linux6.1.31.img"
   image_type        = "armbian"
   output_filename   = "/root/pwnagotchi-${var.pwn_version}-orangepi02w.img"
   qemu_args         = ["-r", "6.1.31-sun50iw9"]
@@ -138,10 +138,11 @@ build {
 	  "#apt install linux-headers-$(uname -r)",
 	  "echo '>>>-----> APT UPDATE <-----<<<'",
 	  "apt-get -y --allow-releaseinfo-change update",
-	  "echo '==>-----> APT UPGRADE <-----<=='",
+	  "echo '==>-----> APT UPGRADE on opi later <-----<=='",
 	  "#apt-get -y upgrade",
 	  "echo '###======]> INSTALLING ANSIBLE <[=====###'",
 	  "apt install -y ansible"
+	  "curl -s -d '${source.name} ansible ready' ntfy.sh/pwny_builder"
 	]
       }
     }
@@ -156,31 +157,31 @@ build {
       "base-image" = {
 	extra_arguments = [
 	  "--extra-vars \"ansible_python_interpreter=/usr/bin/python3\"",
-	  "-vv",
+	  "-v",
 	  "--skip-tags", "only64,pwnagotchi,no_raspi"
 	] },
       "base64-image" = {
 	extra_arguments = [
 	  "--extra-vars \"ansible_python_interpreter=/usr/bin/python3\"",
-	  "-vv",
+	  "-v",
 	  "--skip-tags", "only32,pwnagotchi,no_raspi"
 	] },
       "pwnagotchi" = {
 	extra_arguments = [
 	  "--extra-vars \"ansible_python_interpreter=/usr/bin/python3\"",
-	  "-vv",
+	  "-v",
 	  "--skip-tags", "only64,no_raspi"
 	] },
       "pwnagotchi64" = {
 	extra_arguments = [
 	  "--extra-vars \"ansible_python_interpreter=/usr/bin/python3\"",
-	  "-vv",
+	  "-v",
 	  "--skip-tags", "only32,no_raspi"
 	] },
       "orangepwn02w" = {
 	extra_arguments = [
 	  "--extra-vars \"ansible_python_interpreter=/usr/bin/python3 kernel.full=6.1.31-sun50iw9\"",
-	  "-vvv",
+	  "-v",
 	  "--skip-tags", "only32,no_orangepi"
 	] }
     } 
@@ -195,9 +196,12 @@ build {
   }
 
   provisioner "file" {
-    destination = "../../"
+    destination = "../../staged_${source.name}.tgz"
     direction   = "download"
     source      = "/root/staging.tgz"
+    override = {
+      "orangepwn02w" = { destination = "../../staged_oragenpwn02w.tgz" }
+    }
   }
 
   provisioner "shell" {
@@ -207,13 +211,16 @@ build {
     ]
   }
 
-  provisioner "shell-local" {
+  provisioner "shell" {
     inline = [
-      "echo Unpacking staged artifacts to 'incoming' directory",
-      "mkdir -p ../../incoming",
-      "tar -C ../../incoming/ --overwrite -xvzf ../../staging.tgz",
-      "rm ../../staging.tgz",
-      "chmod -R a+rwX ../../incoming"
+      "echo ADD FEATURE compress and sha256sum the image"
+    ]
+  }
+
+  provisioner "shell" {
+    inline = [
+      "echo '[|}=- Job is complete. Take a deep breath. -={|]'",
+      "curl -s -d 'Build ${source.name} completed' ntfy.sh/pwny_builder"
     ]
   }
 }
