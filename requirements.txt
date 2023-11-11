@@ -1,5 +1,5 @@
-gym;  platform_machine!="armv6l" ; platform_release!="6.1.62*"
-shimmy; platform_machine!="armv6l" ; platform_release!="6.1.62*"
+gym;  platform_machine!="armv6l" and platform_release!="6.1.62"
+shimmy; platform_machine!="armv6l" and platform_release!="6.1.62" and platform_release!="5.15.0"
 pycryptodome
 requests
 PyYAML
