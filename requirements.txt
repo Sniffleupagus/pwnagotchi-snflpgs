@@ -32,6 +32,7 @@ RPi.GPIO @ git+https://github.com/BPI-SINOVOIP/RPi.GPIO ; platform_release=="6.1
 
 RPi.GPIO; platform_release=="6.1.21"
 
-RPi.GPIO @ https://github.com/rm-hull/OPi.GPIO ; platform_release=="6.1.31-sun50iw9"
+OPi.GPIO; platform_release=="6.1.31-sun50iw9"
+#OPi.GPIO @ https://github.com/rm-hull/OPi.GPIO ; platform_release=="6.1.31-sun50iw9"
 
-rpi_hardware_pwm
+rpi_hardware_pwm; platform_release=="6.1.21"
