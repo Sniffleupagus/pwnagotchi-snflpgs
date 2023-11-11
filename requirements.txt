@@ -1,5 +1,5 @@
-gym
-shimmy; platform_machine!="armv6l"
+gym;  platform_machine!="armv6l" ; platform_release!="6.1.62*"
+shimmy; platform_machine!="armv6l" ; platform_release!="6.1.62*"
 pycryptodome
 requests
 PyYAML
@@ -32,6 +32,6 @@ RPi.GPIO @ git+https://github.com/BPI-SINOVOIP/RPi.GPIO ; platform_release=="6.1
 
 RPi.GPIO; platform_release=="6.1.21"
 
-OPi.GPIO; platform_release=="6.1.31-sun50iw9"
+RPi.GPIO @ https://github.com/rm-hull/OPi.GPIO ; platform_release=="6.1.31-sun50iw9"
 
 rpi_hardware_pwm
