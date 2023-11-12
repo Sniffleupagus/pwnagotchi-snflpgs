@@ -47,29 +47,23 @@
     register: big_download
 
   - name: "go mod tidy for {{item.name}}"
-    shell: "go mod tidy -x -v"
+    shell: "go mod tidy"
     register: result
-    retries: 7
-    delay: 60
+    retries: 10
+    delay: 10
     args:
       executable: /bin/bash
       chdir: '/usr/local/src/{{ item.name }}'
     until: result is not failed
     ignore_errors: true
 
-  - name: "build {{item.name}}"
-    shell: "make"
-    register: result
-    args:
-      executable: /bin/bash
+  - name: "build and install {{item.name}}"
+    make:
       chdir: '/usr/local/src/{{ item.name }}'
-
-  - name: "install {{item.name}}"
-    shell: "make install"
+      targets:
+        - all
+        - install
     register: result
-    args:
-      executable: /bin/bash
-      chdir: '/usr/local/src/{{ item.name }}'
 
   - name: "make bin staging dir {{staging}}/bin"
     file:
