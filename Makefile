@@ -17,7 +17,6 @@ else
 GOARCH := amd64
 $(warning Unable to detect CPU arch from machine type $(MACHINE_TYPE), assuming $(GOARCH))
 endif
-$(warning detected CPU arch from machine type $(MACHINE_TYPE), arch $(GOARCH))
 
 # The Ansible part of the build can inadvertently change the active hostname of
 # the build machine while updating the permanent hostname of the build image.
@@ -52,12 +51,12 @@ $(SDIST): setup.py pwnagotchi
 # Building the image requires packer, but don't rebuild the image just because packer updated.
 $(PWN_RELEASE).img: | $(PACKER)
 
-base32: $(SDIST) builder/pwnagotchi.json.pkr.hcl builder/pwnagotchi.yml $(shell find builder/data -type f)
+base32: builder/pwnagotchi.json.pkr.hcl builder/pwnagotchi.yml $(shell find builder/data -type f)
 	$(PACKER) plugins install github.com/solo-io/arm-image
 	cd builder && $(UNSHARE) $(PACKER) build -on-error=abort -var "pwn_hostname=$(PWN_HOSTNAME)" -var "pwn_version=$(PWN_VERSION)" -only=arm-image.base-image pwnagotchi.json.pkr.hcl
 
 # If the packer or ansible files are updated, rebuild the image.
-base64: $(SDIST) builder/pwnagotchi.json.pkr.hcl builder/pwnagotchi.yml $(shell find builder/data -type f)
+base64: builder/pwnagotchi.json.pkr.hcl builder/pwnagotchi.yml $(shell find builder/data -type f)
 	$(PACKER) plugins install github.com/solo-io/arm-image
 	cd builder && $(UNSHARE) $(PACKER) build -on-error=abort -var "pwn_hostname=$(PWN_HOSTNAME)" -var "pwn_version=$(PWN_VERSION)" -only=arm-image.base64-image pwnagotchi.json.pkr.hcl
 
@@ -75,12 +74,14 @@ orangepi02w: $(SDIST) builder/pwnagotchi.json.pkr.hcl builder/pwnagotchi.yml $(s
 	$(PACKER) plugins install github.com/solo-io/arm-image
 	cd builder && $(UNSHARE) $(PACKER) build -on-error=abort -var "pwn_hostname=$(PWN_HOSTNAME)" -var "pwn_version=$(PWN_VERSION)" -only=\*.orangepwn02w pwnagotchi.json.pkr.hcl
 
+bananapim2zero: builder/pwnagotchi.json.pkr.hcl builder/pwnagotchi.yml $(shell find builder/data -type f)
+	cd builder && $(UNSHARE) $(PACKER) build -var "pwn_hostname=$(PWN_HOSTNAME)" -var "pwn_version=$(PWN_VERSION)" -only=\*.bananapim2zero pwnagotchi.json.pkr.hcl
+
 images: $(SDIST) builder/pwnagotchi.json.pkr.hcl builder/pwnagotchi.yml $(shell find builder/data -type f)
 	$(PACKER) plugins install github.com/solo-io/arm-image
 	cd builder && $(UNSHARE) $(PACKER) build -on-error=abort -var "pwn_hostname=$(PWN_HOSTNAME)" -var "pwn_version=$(PWN_VERSION)" -only=\*.pwnagotchi64,\*.pwnagotchi pwnagotchi.json.pkr.hcl
 
-bases: $(SDIST) builder/pwnagotchi.json.pkr.hcl builder/pwnagotchi.yml $(shell find builder/data -type f)
-	$(PACKER) plugins install github.com/solo-io/arm-image
+bases: builder/pwnagotchi.json.pkr.hcl builder/pwnagotchi.yml $(shell find builder/data -type f)
 	cd builder && $(UNSHARE) $(PACKER) build -on-error=abort -var "pwn_hostname=$(PWN_HOSTNAME)" -var "pwn_version=$(PWN_VERSION)" -only=\*.base-image,\*.base64-image pwnagotchi.json.pkr.hcl
 
 
