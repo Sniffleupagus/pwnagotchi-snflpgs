@@ -17,46 +17,56 @@ variable "pwn_version" {
 
 
 source "arm-image" "base-image" {
-  iso_checksum      = "file:https://downloads.raspberrypi.org/raspios_lite_armhf/images/raspios_lite_armhf-2023-05-03/2023-05-03-raspios-bullseye-armhf-lite.img.xz.sha256"
-  iso_url           = "https://downloads.raspberrypi.org/raspios_lite_armhf/images/raspios_lite_armhf-2023-05-03/2023-05-03-raspios-bullseye-armhf-lite.img.xz"
-  output_filename   = "/root/base_raspios-bullseye-armhf.img"
+  iso_checksum      = "file:/home/vagrant/images/2023-05-03-raspios-bullseye-armhf-lite.img.xz.sha256"
+  iso_url           = "file:/home/vagrant/images/2023-05-03-raspios-bullseye-armhf-lite.img.xz"
+  output_filename   = "/pwnystable/images/base_raspios-bullseye-armhf.img"
   qemu_args         = ["-cpu", "arm1176"]
   image_arch        = "arm"
   target_image_size = 9368709120
 }
 
 source "arm-image" "base64-image" {
-  iso_checksum      = "file:https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2023-05-03/2023-05-03-raspios-bullseye-arm64-lite.img.xz.sha256"
-  iso_url           = "https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2023-05-03/2023-05-03-raspios-bullseye-arm64-lite.img.xz"
-  output_filename   = "/root/base_raspios-bullseye-aarch64.img"
+  iso_checksum      = "file:/home/vagrant/images/2023-05-03-raspios-bullseye-arm64-lite.img.xz.sha256"
+  iso_url           = "file:/home/vagrant/images/2023-05-03-raspios-bullseye-arm64-lite.img.xz"
+  output_filename   = "/pwnystable/images/base_raspios-bullseye-aarch64.img"
   image_arch        = "arm64"
   target_image_size = 9368709120
 }
 
 source "arm-image" "pwnagotchi" {
-  iso_checksum      = "file:/root/base_raspios-bullseye-armhf.img.xz.sha256"
-  iso_url           = "file:/root/base_raspios-bullseye-armhf.img.xz"
-  output_filename   = "/root/pwnagotchi-${var.pwn_version}-armhf.img"
+  iso_checksum      = "file:/pwnystable/images/base_raspios-bullseye-armhf.img.xz.sha256"
+  iso_url           = "file:/pwnystable/images/base_raspios-bullseye-armhf.img.xz"
+  output_filename   = "/pwnystable/images/pwnagotchi-${var.pwn_version}-armhf.img"
   qemu_args         = ["-cpu", "arm1176"]
   image_arch        = "arm"
   target_image_size = 9368709120
 }
 
 source "arm-image" "pwnagotchi64" {
-  iso_checksum      = "file:/root/base_raspios-bullseye-aarch64.img.xz.sha256"
-  iso_url           = "file:/root/base_raspios-bullseye-aarch64.img.xz"
-  output_filename   = "/root/pwnagotchi-${var.pwn_version}-aarch64.img"
+  iso_checksum      = "file:/pwnystable/images/base_raspios-bullseye-aarch64.img.xz.sha256"
+  iso_url           = "file:/pwnystable/images/base_raspios-bullseye-aarch64.img.xz"
+  output_filename   = "/pwnystable/images/pwnagotchi-${var.pwn_version}-aarch64.img"
   image_arch        = "arm64"
   target_image_size = 9368709120
 }
 
 source "arm-image" "orangepwn02w" {
-  iso_checksum      = "file:/vagrant_data/Orangepizero2w_1.0.0_debian_bookworm_server_linux6.1.31.img.sha"
-  iso_url           = "file:/vagrant_data/Orangepizero2w_1.0.0_debian_bookworm_server_linux6.1.31.img"
+  iso_checksum      = "file:/vagrant/Orangepizero2w_base.img.xz.sha256"
+  iso_url           = "file:/vagrant/Orangepizero2w_base.img.xz"
   image_type        = "armbian"
-  output_filename   = "/root/pwnagotchi-${var.pwn_version}-orangepi02w.img"
+  output_filename   = "/pwnystable/images/pwnagotchi-${var.pwn_version}-orangepi02w.img"
   qemu_args         = ["-r", "6.1.31-sun50iw9"]
   image_arch        = "arm64"
+  target_image_size = 9368709120
+}
+
+source "arm-image" "bananapim2zero" {
+  iso_checksum      = "file:/home/vagrant/lgit/armbian-build/output/images/Armbian_23.11.0-trunk_Bananapim2zero_bullseye_current_6.1.62_minimal.img.sha"
+  iso_url           = "/home/vagrant/lgit/armbian-build/output/images/Armbian_23.11.0-trunk_Bananapim2zero_bullseye_current_6.1.62_minimal.img"
+  image_type        = "armbian"
+  output_filename   = "/pwnystable/images/pwnagotchi-${var.pwn_version}-${source.name}.img"
+  qemu_args         = ["-r", "6.1.62-current-sunxi"]
+  image_arch        = "arm"
   target_image_size = 9368709120
 }
 
@@ -66,12 +76,29 @@ build {
     "source.arm-image.base64-image",
     "source.arm-image.pwnagotchi",
     "source.arm-image.pwnagotchi64",
-    "source.arm-image.orangepwn02w"
+    "source.arm-image.orangepwn02w",
+    "source.arm-image.bananapim2zero"
   ]
 
   provisioner "file" {
+    except = ["arm-image.bananapim2zero"]
     destination = "/root/staging/"
     source      = "../../staging/"
+  }
+
+  provisioner "file" {
+    only = ["arm-image.bananapim2zero", "arm-image.pwnagotchi"]
+    destination = "/root/"
+    source      = "../../spool/go_pkgs.tgz"
+  }
+
+  provisioner "shell" {
+    only = ["arm-image.bananapim2zero", "arm-image.pwnagotchi"]
+    inline = [
+      "echo Installing go packages to help go mod tidy under arm emulation",
+      "tar -C /root -xzf /root/go_pkgs.tgz",
+      "rm /root/go_pkgs.tgz"
+    ]
   }
 
   provisioner "file" {
@@ -88,6 +115,7 @@ build {
   }
 
   provisioner "file" {
+    except = ["arm-image.bananapim2zero"]
     destination = "/etc/network/interfaces.d/"
     sources     = [
       "../builder/data/etc/network/interfaces.d/lo-cfg",
@@ -120,10 +148,16 @@ build {
   }
 
   provisioner "shell" {
+    only = ["arm-image.base-image", "arm-image.base64-image", "arm-image.pwnagotchi", "arm-image.pwnagotchi64"]
     inline = [
       "echo Install kernel headers",
       "apt-get install -y raspberrypi-kernel-headers",
-      "apt-mark hold raspberrypi-kernel raspberrypi-kernel-headers",
+      "apt-mark hold raspberrypi-kernel raspberrypi-kernel-headers"
+    ]
+  }
+
+  provisioner "shell" {
+    inline = [
       "echo '>>>-----> APT UPDATE <-----<<<'",
       "apt-get -y --allow-releaseinfo-change update",
       "echo '==>-----> APT UPGRADE <-----<=='",
@@ -131,21 +165,6 @@ build {
       "echo '###======]> INSTALLING ANSIBLE <[=====###'",
       "apt install -y ansible"
     ]
-    override = {
-      "orangepwn02w" = {
-	inline = [
-	  "echo Skip install kernel headers",
-	  "#apt install linux-headers-$(uname -r)",
-	  "echo '>>>-----> APT UPDATE <-----<<<'",
-	  "apt-get -y --allow-releaseinfo-change update",
-	  "echo '==>-----> APT UPGRADE on opi later <-----<=='",
-	  "#apt-get -y upgrade",
-	  "echo '###======]> INSTALLING ANSIBLE <[=====###'",
-	  "apt install -y ansible"
-	  "curl -s -d '${source.name} ansible ready' ntfy.sh/pwny_builder"
-	]
-      }
-    }
   }
 
   provisioner "ansible-local" {
@@ -183,6 +202,12 @@ build {
 	  "--extra-vars \"ansible_python_interpreter=/usr/bin/python3 kernel.full=6.1.31-sun50iw9\"",
 	  "-v",
 	  "--skip-tags", "only32,no_orangepi"
+	] },
+      "bananapim2zero" = {
+	extra_arguments = [
+	  "--extra-vars \"ansible_python_interpreter=/usr/bin/python3 kernel.full=6.1.62-current-sunxi\"",
+	  "-vv",
+	  "--skip-tags", "only64,no_bananapi"
 	] }
     } 
   }
