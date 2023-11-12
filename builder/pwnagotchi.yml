@@ -582,7 +582,6 @@
     tags:
       - pwnagotchi
       - only64
-      - no_orangepi
     register: result
     until: result is not failed
 
@@ -595,13 +594,34 @@
     tags:
       - pwnagotchi
       - only64
+      - no_orangepi
       - no_raspi
+
+  - name: "Install RPi.GPIO on banana pi"
+    pip:
+      name: "git+https://github.com/BPI-SINOVOIP/RPi.GPIO#egg=RPi.GPIO"
+    tags:
+      - no_raspi
+      - no_orangepi
+      - bananapi
+
+  - name: "Install OPi.GPIO on orange pi"
+    pip:
+      name: "git+https://github.com/Sniffleupagus/OPi.GPIO@BOARD-and-BCM-to-sunxi-numbers#egg=OPi.GPIO"
+    tags:
+      - orangepi
+      - no_raspi
+      - no_bananapi
 
   - name: "Link OPi.GPIO to RPi.GPIO, to truly seamlessly replace."
     file:
       src: "/usr/local/lib/python3.9/dist-packages/OPi"
-      dest: "/usr/local/lib/python3.9/dist-packages/OPi"
+      dest: "/usr/local/lib/python3.9/dist-packages/RPi"
       state: link
+    tags:
+      - orangepi
+      - no_raspi
+      - no_bananapi
     ignore_errors: true
 
   - name: make wheel staging dir
@@ -776,7 +796,7 @@
   - name: set up pi user crontab to kick wifi.recon on bettercap
     tags: pwnagotchi
     copy:
-      dest: /tmp/pi-crontab
+      dest: /tmp/pi_crontab
       content: |
         # Edit this file to introduce tasks to be run by cron.
         #
@@ -804,7 +824,7 @@
         */5 *  *   *   *     {{pwnagotchi_user.home}}/.local/bin/bcinfo.py -qw >/dev/null 2>&1
 
   - name: install pi crontab
-    command: "crontab -u {{pwnagotch_user.name}} /tmp/pi_crontab"
+    command: "crontab -u {{pwnagotchi_user.name}} /tmp/pi_crontab"
     args:
       chdir: /tmp
     register: pi_crontab
@@ -1089,6 +1109,7 @@
       - name: regenerate ssh keys
         tags:
           - no_bananapi
+          - only64
         shell: "dpkg-reconfigure openssh-server"
         args:
           executable: /bin/bash
