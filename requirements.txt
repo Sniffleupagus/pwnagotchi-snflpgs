@@ -19,20 +19,27 @@ toml
 python-dateutil
 websockets
 
+# use these on 64-bit platforms for gym compatability
+# works on raspberry pi, orangepi zero 2w
 torch==2.0.1; platform_machine=="aarch64"
 torchvision==0.15.2; platform_machine=="aarch64"
 stable_baselines3; platform_machine=="aarch64"
 
-#torch>=2.0.1; platform_machine!="aarch64"
+# use these on PizeroW because these wheels exist
+torch>=2.0.1; platform_machine=="armv6l"
 torchvision>=0.15.2; platform_machine=="armv6l"
 stable_baselines3==1.8.0; platform_machine=="armv6l"
 
+# bananapi has no torch yet, so just skip them
 
-RPi.GPIO @ git+https://github.com/BPI-SINOVOIP/RPi.GPIO ; platform_release=="6.1.62"
+
+# Bananapi version of RPi.GPIO
+git+https://github.com/BPI-SINOVOIP/RPi.GPIO#egg=RPi.GPIO ; platform_release=="6.1.62"
 
 RPi.GPIO; platform_release=="6.1.21"
 
-OPi.GPIO; platform_release=="6.1.31-sun50iw9"
-#OPi.GPIO @ https://github.com/rm-hull/OPi.GPIO ; platform_release=="6.1.31-sun50iw9"
+# OPi.GPIO is orange pi version of RPi.GPIO
+# symlink to RPi.GPIO for pretty seamless replacement
+git+https://github.com/Sniffleupagus/OPi.GPIO@BOARD-and-BCM-to-sunxi-numbers#egg=OPi.GPIO ; platform_release=="6.1.31-sun50iw9"
 
 rpi_hardware_pwm; platform_release=="6.1.21"
