@@ -59,7 +59,8 @@ if strtobool(os.environ.get("PWNAGOTCHI_ENABLE_INSTALLER", "1")):
     installer()
 
 with open('requirements.txt') as fp:
-    required = [line.strip() for line in fp if line.strip() != ""]
+    required = [line.strip() for line in fp if (line.strip() != "" and not line.startswith("git+"))]
+    dependency = [line.strip() for line in fp if line.startswith("git+")]
 
 VERSION_FILE = 'pwnagotchi/_version.py'
 pwnagotchi_version = version(VERSION_FILE)
@@ -72,6 +73,7 @@ setup(name='pwnagotchi',
       url='https://pwnagotchi.ai/',
       license='GPL',
       install_requires=required,
+      dependency_links=dependency,
       scripts=['bin/pwnagotchi'],
       package_data={'pwnagotchi': ['defaults.yml', 'pwnagotchi/defaults.yml', 'locale/*/LC_MESSAGES/*.mo']},
       include_package_data=True,
