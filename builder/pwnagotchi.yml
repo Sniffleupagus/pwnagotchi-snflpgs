@@ -606,6 +606,7 @@
       - no_raspi
       - no_orangepi
       - bananapi
+    ignore_errors: true
 
   - name: "Install OPi.GPIO on orange pi"
     pip:
@@ -614,6 +615,7 @@
       - orangepi
       - no_raspi
       - no_bananapi
+    ignore_errors: true
 
   - name: "Link OPi.GPIO to RPi.GPIO, to truly seamlessly replace."
     file:
