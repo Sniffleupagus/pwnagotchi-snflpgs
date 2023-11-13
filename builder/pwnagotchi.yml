@@ -272,11 +272,12 @@
     user:
       name: pwny
       shell: /bin/bash
-      groups: "daemon,adm,sudo,spi,gpio,i2c"
+      groups: "daemon,adm,sudo"
       password: $6$3jNr0GA9KIyt4hmM$efeVIopdMQ8DGgEPCWWlbx3mJJNAYci1lEXGdlky0xPyjqwKNbwTL5SrCcpb4144C4IvzWjn7Iv.QjqmU7iyT/
       home: /home/pwny
       create_home: true
     register: pwnagotchi_user
+    ignore_errors: true
 
   - name: check uname -m just to be sure
     shell: "uname -m && uname -a && ls -l /lib/modules && sudo uname -a"
@@ -286,13 +287,14 @@
     tags:
       - base
 
+  # collect hostname in custom facts
   - name: change hostname
     lineinfile:
       dest: /etc/hostname
       regexp: "^{{hname}}"
       line: "{{pwnagotchi.hostname}}"
       state: present
-    when: lookup('file', '/etc/hostname') == "{{hname}}"
+    when: lookup('file', '/etc/hostname') == "raspberrypi"
     register: hostname
     tags:
       - base
@@ -533,8 +535,8 @@
       - no_bananapi
 
   - name: "install 32-bit pwnagotchi wheel and dependencies with 32-bit torch wheels {{staging}} {{ansible_architecture}}.whl"
-    retries: 3
-    delay: 10
+    retries: 5
+    delay: 69
     pip:
       name:
         - "{{ lookup('fileglob', '/usr/local/src/pwnagotchi/dist/pwnagotchi*.whl') }}"
@@ -582,7 +584,7 @@
       - only64
     register: result
     retries: 5
-    delay: 10
+    delay: 30
     until: result is not failed
 
   - name: install 64-bit pwnagotchi wheel and dependencies (--break-system-packages)
