@@ -56,12 +56,14 @@
             dest: /usr/local/src/nexmon
           register: nexmongit
 
-        # -DDEBUG breaks nexmon on armbian, but we don't really need it anywhere
+        # -DDEBUG breaks nexmon on armbian, but is needed on raspberry pi
         #
         # can these two lineinfiles be replaced with a "replace" that matches "\.*-DDEBUG"
         # and replaces with "" ?
         #
         - name: "Disable nexmon -DDEBUG"
+          tags:
+            - no_raspi
           when: nexmongit.changed
           replace:
             path: "/usr/local/src/nexmon/patches/driver/brcmfmac_6.1.y-nexmon/Makefile"
