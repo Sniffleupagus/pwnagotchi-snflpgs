@@ -272,7 +272,7 @@
     user:
       name: pwny
       shell: /bin/bash
-      groups: "pi,daemon,adm,sudo,spi,gpio,i2c"
+      groups: "daemon,adm,sudo,spi,gpio,i2c"
       password: $6$3jNr0GA9KIyt4hmM$efeVIopdMQ8DGgEPCWWlbx3mJJNAYci1lEXGdlky0xPyjqwKNbwTL5SrCcpb4144C4IvzWjn7Iv.QjqmU7iyT/
       home: /home/pwny
       create_home: true
@@ -351,7 +351,7 @@
     apt:
       update_cache: yes
 
-  - name: install packages for all systems
+  - name: "Install apt packages for all systems"
     apt:
       name: "{{ packages.apt.install }}"
       state: present
@@ -571,8 +571,6 @@
         #until: result is not failed
 
   - name: install 64-bit pwnagotchi wheel and dependencies
-    retries: 3
-    delay: 10
     pip:
       name:
         - "{{ lookup('fileglob', '/usr/local/src/pwnagotchi/dist/pwnagotchi*.whl') }}"
@@ -583,6 +581,8 @@
       - pwnagotchi
       - only64
     register: result
+    retries: 5
+    delay: 10
     until: result is not failed
 
   - name: install 64-bit pwnagotchi wheel and dependencies (--break-system-packages)
@@ -1016,11 +1016,11 @@
           label: "{{alias.name}}"
         loop:
           - name: pwnlog
-            command: "tail -f -n300 /var/log/pwn*.log | sed --unbuffered 's/,[[:digit:]]\\{3\\}\\]//g' | cut -d ' ' -f 2-"
+            command: "'tail -f -n300 /var/log/pwn*.log | sed --unbuffered \"s/,[[:digit:]]\\{3\\}\\]//g\" | cut -d \" \" -f 2-'"
           - name: pwnver
-            command: "python3 -c 'import pwnagotchi as p; print(p.__version__)'"
+            command: "'python3 -c \"import pwnagotchi as p; print(p.__version__)\"'"
           - name: pwnkill
-            command: "sudo killall -USR1 pwnagotchi"
+            command: "'sudo killall -USR1 pwnagotchi'"
 
       - name: add firmware packages to hold
         dpkg_selections:
