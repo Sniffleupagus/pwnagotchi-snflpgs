@@ -60,7 +60,10 @@
   - name: "build and install {{item.name}}"
     make:
       chdir: '/usr/local/src/{{ item.name }}'
-      targets:
+      target: "{{target}"
+    loop_control:
+      loop_var: target
+    loop:
         - all
         - install
     register: result
