@@ -1,5 +1,5 @@
 gym;  platform_machine!="armv6l" and platform_release!="6.1.62"
-shimmy; platform_machine!="armv6l" and platform_release!="6.1.62" and platform_release!="5.15.0"
+shimmy; platform_machine!="armv6l" and platform_release!="6.1.62"
 pycryptodome
 requests
 PyYAML
@@ -34,7 +34,7 @@ stable_baselines3==1.8.0; platform_machine=="armv6l"
 
 
 # Bananapi version of RPi.GPIO
-git+https://github.com/BPI-SINOVOIP/RPi.GPIO#egg=RPi.GPIO ; platform_release=="6.1.62"
+#git+https://github.com/BPI-SINOVOIP/RPi.GPIO#egg=RPi.GPIO ; platform_release=="6.1.62"
 
 RPi.GPIO; platform_release=="6.1.21"
 
