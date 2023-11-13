@@ -1,4 +1,4 @@
-#
+---
 # Install nexmon brcmfmac firmware and drivers from source as needed
 #
 
@@ -61,26 +61,26 @@
         # can these two lineinfiles be replaced with a "replace" that matches "\.*-DDEBUG"
         # and replaces with "" ?
         #
-        # - name: "Disable nexmon -DDEBUG"
-        #   when: nexmongit.changed
-        #   replace:
-        #     path: "/usr/local/src/nexmon/patches/driver/brcmfmac_6.1.y-nexmon/Makefile"
-        #     regexp: '(\\[ \n\t]*)?-DDEBUG'
-        #     replace: ''
-        #
-        - name: "Remove -DDEBUG from Makefile"
+        - name: "Disable nexmon -DDEBUG"
           when: nexmongit.changed
-          ansible.builtin.lineinfile:
+          replace:
             path: "/usr/local/src/nexmon/patches/driver/brcmfmac_6.1.y-nexmon/Makefile"
-            regexp: '-DDEBUG$'
-            state: absent
+            regexp: '(\\[\s\n]*)?-DDEBUG'
+            replace: ''
 
-        - name: 'Remove \ from end of line before where -DDEBUG was'
-          when: nexmongit.changed
-          ansible.builtin.lineinfile:
-            path: "/usr/local/src/nexmon/patches/driver/brcmfmac_6.1.y-nexmon/Makefile"
-            regexp: 'patches.driver.brcmfmac_6\.1\.y-nexmon.include.*'
-            line: "       -I$(NEXMON_ROOT)/patches/driver/brcmfmac_6.1.y-nexmon/include"
+        # - name: "Remove -DDEBUG from Makefile"
+        #   when: nexmongit.changed
+        #   ansible.builtin.lineinfile:
+        #     path: "/usr/local/src/nexmon/patches/driver/brcmfmac_6.1.y-nexmon/Makefile"
+        #     regexp: '-DDEBUG$'
+        #     state: absent
+
+        # - name: 'Remove \ from end of line before where -DDEBUG was'
+        #   when: nexmongit.changed
+        #   ansible.builtin.lineinfile:
+        #     path: "/usr/local/src/nexmon/patches/driver/brcmfmac_6.1.y-nexmon/Makefile"
+        #     regexp: 'patches.driver.brcmfmac_6\.1\.y-nexmon.include.*'
+        #     line: "       -I$(NEXMON_ROOT)/patches/driver/brcmfmac_6.1.y-nexmon/include"
 
         - name: "{{board.name}} nexmon: top level make"
           when: nexmongit.changed
@@ -96,11 +96,14 @@
             - name: "{{board.patch}} firmware: make clean"
               make:
                 chdir: "/usr/local/src/nexmon/patches/{{board.patch}}/nexmon"
-                targets:
+                target: "{{target}}"
+              loop_control:
+                loop_var: target
+              loop:
                   - clean
                   - all
 
-            - name: create firmware staging dir
+            - name: "create firmware staging dir"
               when: staging is defined
               file:
                 state: directory
@@ -124,7 +127,10 @@
               when: firmware.stat.exists
               make:
                 chdir: "/usr/local/src/nexmon/patches/{{ board.patch }}/nexmon/"
-                targets:
+                target: "{{target}}"
+              loop_control:
+                loop_var: target
+              loop:
                   - clean
                   - brcmfmac.ko
 
