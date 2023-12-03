@@ -412,7 +412,7 @@ class View(object):
 
                 self._canvas = Image.new(colormode, (self._width, self._height), WHITE)
                 drawer = ImageDraw.Draw(self._canvas)
-                drawer.font_mode = "1"
+                drawer.fontmode = "1"
 
                 plugins.on('ui_update', self)
 
