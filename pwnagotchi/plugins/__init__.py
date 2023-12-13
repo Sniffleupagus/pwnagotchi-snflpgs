@@ -11,7 +11,53 @@ default_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "defaul
 loaded = {}
 database = {}
 locks = {}
+exitFlag = 0
+plugin_event_queues = {}
 
+def dummy_callback():
+    pass
+
+class WorkerThread (threading.Thread):
+    def __init__(self, plugin_name, event_name, work_queue):
+        threading.Thread.__init__(self)
+        self.plugin_name = plugin_name
+        self.event_name = event_name
+        self.work_queue = work_queue
+
+    def run(self):
+        logging.info("Worker thread starting for %s.%s"%(self.plugin_name, self.event_name))
+        process_event(self.plugin_name, self.event_name, self.work_queue)
+        logging.info("Worker thread exiting for %s.%s"%(self.plugin_name, self.event_name))
+
+
+def process_event(plugin_name, event_name, work_queue):
+    while not exitFlag:
+        plugin_event_queues[plugin_name][event_name].queue_lock.acquire()
+        if not work_queue.empty():
+            data = work_queue.get()
+            plugin_event_queues[plugin_name][event_name].queue_lock.release()
+            try:
+                loaded[plugin_name].__dict__[('on_%s'%event_name)](*data[0], **data[1])
+            except Exception as e:
+                logging.error("error while running %s.%s : %s" % (plugin_name, event_name, e))
+        else:
+            plugin_event_queues[plugin_name][event_name].queue_lock.release()
+            time.sleep(1)
+
+
+class PluginEventQueue():
+    def __init__(self, plugin_name, event_name):
+        self.plugin_name = plugin_name
+        self.event_name = event_name
+        self.work_queue = queue.Queue()
+        self.worker_thread = WorkerThread(self.plugin_name, self.event_name, self.work_queue)
+        self.queue_lock = threading.Lock()
+        self.worker_thread.start()
+
+    def AddWork(self, *args, **kwargs):
+        self.queue_lock.acquire()
+        self.work_queue.put([args, kwargs])
+        self.queue_lock.release()
 
 class Plugin:
     @classmethod
@@ -73,6 +119,23 @@ def toggle_plugin(name, enable=True):
 
 
 def on(event_name, *args, **kwargs):
+    global loaded
+    global plugin_event_queues
+    cb_name = 'on_%s' % event_name
+    for plugin_name, plugin in loaded.items():
+        if cb_name not in plugin.__dict__:
+            continue
+
+        if plugin_name not in plugin_event_queues:
+            plugin_event_queues[plugin_name] = {}
+
+        if event_name not in plugin_event_queues[plugin_name]:
+            plugin_event_queues[plugin_name][event_name] = PluginEventQueue(plugin_name, event_name)
+
+        plugin_event_queues[plugin_name][event_name].AddWork(*args, **kwargs)
+
+
+def old_on(event_name, *args, **kwargs):
     for plugin_name in loaded.keys():
         one(plugin_name, event_name, *args, **kwargs)
 
