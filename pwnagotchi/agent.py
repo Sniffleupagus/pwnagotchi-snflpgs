@@ -312,12 +312,46 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
 
     def _fetch_stats(self):
         while True:
-            s = self.session()
-            self._update_uptime(s)
-            self._update_advertisement(s)
-            self._update_peers()
-            self._update_counters()
-            self._update_handshakes(0)
+        restart_monitor = False
+        while True:
+            try:
+                s = self.session()
+                if restart_monitor:
+                    logging.debug("resetting bettercap is so fetch")
+                    self._reset_wifi_settings()
+                    if self.mode != 'manual':
+                        self.run('wifi.recon on')
+                    # if wifi.recon on fails, it will throw an error, and restart_monitor
+                    # stays True to try restarting recon again next loop
+                    restart_monitor = False
+            except Exception as err:
+                logging.error("[agent:_fetch_stats] self.session: %s" % repr(err))
+                # bettercap probably crashed, and session failed
+                restart_monitor = True
+
+            try:
+                self._update_uptime(s)
+            except Exception as err:
+                logging.error("[agent:_fetch_stats] self.update_uptimes: %s" % repr(err))
+
+            try:
+                self._update_advertisement(s)
+            except Exception as err:
+                logging.error("[agent:_fetch_stats] self.update_advertisements: %s" % repr(err))
+
+            try:
+                self._update_peers()
+            except Exception as err:
+                logging.error("[agent:_fetch_stats] self.update_peers: %s" % repr(err))
+            try:
+                self._update_counters()
+            except Exception as err:
+                logging.error("[agent:_fetch_stats] self.update_counters: %s" % repr(err))
+            try:
+                self._update_handshakes(0)
+            except Exception as err:
+                logging.error("[agent:_fetch_stats] self.update_handshakes: %s" % repr(err))
+
             time.sleep(1)
 
     async def _on_event(self, msg):
