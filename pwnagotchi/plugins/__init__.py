@@ -19,12 +19,19 @@ plugin_event_queues = {}
 def dummy_callback():
     pass
 
-class WorkerThread (threading.Thread):
-    def __init__(self, plugin_name, work_queue, queue_lock):
-        threading.Thread.__init__(self)
+class PluginEventQueue(threading.Thread):
+    def __init__(self, plugin_name):
         self.plugin_name = plugin_name
-        self.work_queue = work_queue
-        self.queue_lock = queue_lock
+        self.work_queue = queue.Queue()
+        self.queue_lock = threading.Lock()
+        threading.Thread.__init__(self)
+        self.keep_going = True
+        self.start()
+
+    def AddWork(self, event_name, *args, **kwargs):
+        self.queue_lock.acquire()
+        self.work_queue.put([event_name, args, kwargs])
+        self.queue_lock.release()
 
     def run(self):
         logging.debug("Worker thread starting for %s"%(self.plugin_name))
@@ -32,12 +39,12 @@ class WorkerThread (threading.Thread):
         logging.info("Worker thread exiting for %s"%(self.plugin_name))
 
     def process_events(self):
-        global exitFlag, plugin_event_queues
+        global exitFlag
         plugin_name = self.plugin_name
         work_queue = self.work_queue
 
         try:
-            while not exitFlag:
+            while not exitFlag and self.keep_going:
                 data = work_queue.get()
                 (event_name, args, kwargs) = data
                         
@@ -48,19 +55,6 @@ class WorkerThread (threading.Thread):
                     callback(*args, **kwargs)
         except Exception as e:
             logging.exception(repr(e))
-
-class PluginEventQueue():
-    def __init__(self, plugin_name):
-        self.plugin_name = plugin_name
-        self.work_queue = queue.Queue()
-        self.queue_lock = threading.Lock()
-        self.worker_thread = WorkerThread(self.plugin_name, self.work_queue, self.queue_lock)
-        self.worker_thread.start()
-
-    def AddWork(self, event_name, *args, **kwargs):
-        self.queue_lock.acquire()
-        self.work_queue.put([event_name, args, kwargs])
-        self.queue_lock.release()
 
 class Plugin:
     @classmethod
@@ -101,6 +95,9 @@ def toggle_plugin(name, enable=True):
         if getattr(loaded[name], 'on_unload', None):
             loaded[name].on_unload(view.ROOT)
         del loaded[name]
+        if name in plugin_event_queues:
+            plugin_event_queues[name].keep_going = False
+            del plugin_event_queues[name]
         if pwnagotchi.config:
             save_config(pwnagotchi.config, '/etc/pwnagotchi/config.toml')
         return True
