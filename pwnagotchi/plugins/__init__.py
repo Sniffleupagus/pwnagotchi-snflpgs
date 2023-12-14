@@ -1,9 +1,11 @@
 import os
+import queue
 import glob
 import _thread
 import threading
 import importlib, importlib.util
 import logging
+import time
 
 
 
@@ -18,45 +20,46 @@ def dummy_callback():
     pass
 
 class WorkerThread (threading.Thread):
-    def __init__(self, plugin_name, event_name, work_queue):
+    def __init__(self, plugin_name, work_queue, queue_lock):
         threading.Thread.__init__(self)
         self.plugin_name = plugin_name
-        self.event_name = event_name
         self.work_queue = work_queue
+        self.queue_lock = queue_lock
 
     def run(self):
-        logging.info("Worker thread starting for %s.%s"%(self.plugin_name, self.event_name))
-        process_event(self.plugin_name, self.event_name, self.work_queue)
-        logging.info("Worker thread exiting for %s.%s"%(self.plugin_name, self.event_name))
+        logging.debug("Worker thread starting for %s"%(self.plugin_name))
+        self.process_events()
+        logging.info("Worker thread exiting for %s"%(self.plugin_name))
 
+    def process_events(self):
+        global exitFlag, plugin_event_queues
+        plugin_name = self.plugin_name
+        work_queue = self.work_queue
 
-def process_event(plugin_name, event_name, work_queue):
-    while not exitFlag:
-        plugin_event_queues[plugin_name][event_name].queue_lock.acquire()
-        if not work_queue.empty():
-            data = work_queue.get()
-            plugin_event_queues[plugin_name][event_name].queue_lock.release()
-            try:
-                loaded[plugin_name].__dict__[('on_%s'%event_name)](*data[0], **data[1])
-            except Exception as e:
-                logging.error("error while running %s.%s : %s" % (plugin_name, event_name, e))
-        else:
-            plugin_event_queues[plugin_name][event_name].queue_lock.release()
-            time.sleep(1)
-
+        try:
+            while not exitFlag:
+                data = work_queue.get()
+                (event_name, args, kwargs) = data
+                        
+                cb_name = 'on_%s' % event_name
+                callback = getattr(loaded[plugin_name], cb_name, None)
+                logging.debug("%s.%s" % (plugin_name, event_name))
+                if callback:
+                    callback(*args, **kwargs)
+        except Exception as e:
+            logging.exception(repr(e))
 
 class PluginEventQueue():
-    def __init__(self, plugin_name, event_name):
+    def __init__(self, plugin_name):
         self.plugin_name = plugin_name
-        self.event_name = event_name
         self.work_queue = queue.Queue()
-        self.worker_thread = WorkerThread(self.plugin_name, self.event_name, self.work_queue)
         self.queue_lock = threading.Lock()
+        self.worker_thread = WorkerThread(self.plugin_name, self.work_queue, self.queue_lock)
         self.worker_thread.start()
 
-    def AddWork(self, *args, **kwargs):
+    def AddWork(self, event_name, *args, **kwargs):
         self.queue_lock.acquire()
-        self.work_queue.put([args, kwargs])
+        self.work_queue.put([event_name, args, kwargs])
         self.queue_lock.release()
 
 class Plugin:
@@ -119,52 +122,32 @@ def toggle_plugin(name, enable=True):
 
 
 def on(event_name, *args, **kwargs):
-    global loaded
-    global plugin_event_queues
+    global loaded, plugin_event_queues
     cb_name = 'on_%s' % event_name
-    for plugin_name, plugin in loaded.items():
-        if cb_name not in plugin.__dict__:
+    for plugin_name in loaded.keys():
+        plugin = loaded[plugin_name]
+        callback = getattr(plugin, cb_name, None)
+
+        if callback is None or not callable(callback):
             continue
 
         if plugin_name not in plugin_event_queues:
-            plugin_event_queues[plugin_name] = {}
+            plugin_event_queues[plugin_name] = PluginEventQueue(plugin_name)
 
-        if event_name not in plugin_event_queues[plugin_name]:
-            plugin_event_queues[plugin_name][event_name] = PluginEventQueue(plugin_name, event_name)
-
-        plugin_event_queues[plugin_name][event_name].AddWork(*args, **kwargs)
-
-
-def old_on(event_name, *args, **kwargs):
-    for plugin_name in loaded.keys():
-        one(plugin_name, event_name, *args, **kwargs)
-
-
-def locked_cb(lock_name, cb, *args, **kwargs):
-    global locks
-
-    if lock_name not in locks:
-        locks[lock_name] = threading.Lock()
-
-    with locks[lock_name]:
-        cb(*args, *kwargs)
-
+        plugin_event_queues[plugin_name].AddWork(event_name, *args, **kwargs)
+        logging.debug("%s %s" % (plugin_name, cb_name))
 
 def one(plugin_name, event_name, *args, **kwargs):
-    global loaded
-
+    global loaded, plugin_event_queues
     if plugin_name in loaded:
         plugin = loaded[plugin_name]
         cb_name = 'on_%s' % event_name
         callback = getattr(plugin, cb_name, None)
         if callback is not None and callable(callback):
-            try:
-                lock_name = "%s::%s" % (plugin_name, cb_name)
-                locked_cb_args = (lock_name, callback, *args, *kwargs)
-                _thread.start_new_thread(locked_cb, locked_cb_args)
-            except Exception as e:
-                logging.error("error while running %s.%s : %s" % (plugin_name, cb_name, e))
-                logging.error(e, exc_info=True)
+            if plugin_name not in plugin_event_queues:
+                plugin_event_queues[plugin_name] = PluginEventQueue(plugin_name)
+
+            plugin_event_queues[plugin_name].AddWork(event_name, *args, **kwargs)
 
 
 def load_from_file(filename):
@@ -193,20 +176,23 @@ def load_from_path(path, enabled=()):
 
 
 def load(config):
-    enabled = [name for name, options in config['main']['plugins'].items() if
-               'enabled' in options and options['enabled']]
+    try:
+        enabled = [name for name, options in config['main']['plugins'].items() if
+                   'enabled' in options and options['enabled']]
 
-    # load default plugins
-    load_from_path(default_path, enabled=enabled)
+        # load default plugins
+        load_from_path(default_path, enabled=enabled)
 
-    # load custom ones
-    custom_path = config['main']['custom_plugins'] if 'custom_plugins' in config['main'] else None
-    if custom_path is not None:
-        load_from_path(custom_path, enabled=enabled)
+        # load custom ones
+        custom_path = config['main']['custom_plugins'] if 'custom_plugins' in config['main'] else None
+        if custom_path is not None:
+            load_from_path(custom_path, enabled=enabled)
 
-    # propagate options
-    for name, plugin in loaded.items():
-        plugin.options = config['main']['plugins'][name]
+        # propagate options
+        for name, plugin in loaded.items():
+            plugin.options = config['main']['plugins'][name]
 
-    on('loaded')
-    on('config_changed', config)
+        on('loaded')
+        on('config_changed', config)
+    except Exception as e:
+        logging.error(repr(e))
