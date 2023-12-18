@@ -442,7 +442,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
     def associate(self, ap, throttle=-1):
         if self.is_stale():
             logging.debug("recon is stale, skipping assoc(%s)", ap['mac'])
-            return
+            return False
 
         if throttle == -1 and "throttle_a" in self._config['personality']:
             throttle = self._config['personality']['throttle_a']
@@ -457,17 +457,21 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                 self._epoch.track(assoc=True)
             except Exception as e:
                 self._on_error(ap['mac'], e)
+                return False
 
             plugins.on('association', self, ap)
             if throttle > 0:
                 logging.debug("throttle: %s" % repr(throttle))
                 time.sleep(throttle)
             self._view.on_normal()
+            return True
+        else:
+            return False
 
     def deauth(self, ap, sta, throttle=-1):
         if self.is_stale():
             logging.debug("recon is stale, skipping deauth(%s)", sta['mac'])
-            return
+            return False
 
         if throttle == -1 and "throttle_d" in self._config['personality']:
             throttle = self._config['personality']['throttle_d']
@@ -482,11 +486,15 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                 self._epoch.track(deauth=True)
             except Exception as e:
                 self._on_error(sta['mac'], e)
+                return False
 
             plugins.on('deauthentication', self, ap, sta)
             if throttle > 0:
                 time.sleep(throttle)
             self._view.on_normal()
+            return True
+        else:
+            return False
 
     def set_channel(self, channel, verbose=True):
         if self.is_stale():
