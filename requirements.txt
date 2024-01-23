@@ -11,13 +11,14 @@ smbus2
 Pillow
 spidev
 gast
-flask
+flask==1.1.2
 flask-cors
 flask-wtf
 dbus-python
 toml
 python-dateutil
 websockets
+Werkzeug==2.0.0
 
 # use these on 64-bit platforms for gym compatability
 # works on raspberry pi, orangepi zero 2w
@@ -41,5 +42,7 @@ RPi.GPIO; platform_release=="6.1.21"
 # OPi.GPIO is orange pi version of RPi.GPIO
 # symlink to RPi.GPIO for pretty seamless replacement
 #git+https://github.com/Sniffleupagus/OPi.GPIO@BOARD-and-BCM-to-sunxi-numbers#egg=OPi.GPIO ; platform_release=="6.1.31-sun50iw9"
+
+#git+https://github.com/Sniffleupagus/OPi.GPIO@BPIm4zero#egg=OPi.GPIO ; platform_release=="6.1.31-sun50iw9"
 
 rpi_hardware_pwm; platform_release=="6.1.21"
