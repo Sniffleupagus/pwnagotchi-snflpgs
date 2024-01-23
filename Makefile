@@ -42,6 +42,7 @@ $(PACKER):
 	curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
 	sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
 	sudo apt-get update && sudo apt-get install packer
+	$(PACKER) plugins install github.com/solo-io/arm-image
 
 SDIST := dist/pwnagotchi-$(PWN_VERSION).tar.gz
 $(SDIST): setup.py pwnagotchi
@@ -51,40 +52,36 @@ $(SDIST): setup.py pwnagotchi
 $(PWN_RELEASE).img: | $(PACKER)
 
 base32: builder/pwnagotchi.json.pkr.hcl builder/pwnagotchi.yml $(shell find builder/data -type f)
-	$(PACKER) plugins install github.com/solo-io/arm-image
 	cd builder && $(UNSHARE) $(PACKER) build -var "pwn_hostname=$(PWN_HOSTNAME)" -var "pwn_version=$(PWN_VERSION)" -only=arm-image.base-image pwnagotchi.json.pkr.hcl
 
 # If the packer or ansible files are updated, rebuild the image.
 base64: builder/pwnagotchi.json.pkr.hcl builder/pwnagotchi.yml $(shell find builder/data -type f)
-	$(PACKER) plugins install github.com/solo-io/arm-image
 	cd builder && $(UNSHARE) $(PACKER) build -var "pwn_hostname=$(PWN_HOSTNAME)" -var "pwn_version=$(PWN_VERSION)" -only=arm-image.base64-image pwnagotchi.json.pkr.hcl
 
 # If the packer or ansible files are updated, rebuild the image.
 $(PWN_RELEASE).img: $(SDIST) builder/pwnagotchi.json.pkr.hcl builder/pwnagotchi.yml $(shell find builder/data -type f)
-	$(PACKER) plugins install github.com/solo-io/arm-image
 	cd builder && $(UNSHARE) $(PACKER) build -var "pwn_hostname=$(PWN_HOSTNAME)" -var "pwn_version=$(PWN_VERSION)" -only=arm-image.pwnagotchi pwnagotchi.json.pkr.hcl
 
 # If the packer or ansible files are updated, rebuild the image.
 image64: $(SDIST) builder/pwnagotchi.json.pkr.hcl builder/pwnagotchi.yml $(shell find builder/data -type f)
-	$(PACKER) plugins install github.com/solo-io/arm-image
 	cd builder && $(UNSHARE) $(PACKER) build -var "pwn_hostname=$(PWN_HOSTNAME)" -var "pwn_version=$(PWN_VERSION)" -only=\*.pwnagotchi64 pwnagotchi.json.pkr.hcl
 
 orangepwn02w: $(SDIST) builder/pwnagotchi.json.pkr.hcl builder/pwnagotchi.yml $(shell find builder/data -type f)
-	$(PACKER) plugins install github.com/solo-io/arm-image
 	cd builder && $(UNSHARE) $(PACKER) build -var "pwn_hostname=$(PWN_HOSTNAME)" -var "pwn_version=$(PWN_VERSION)" -only=\*.orangepwn02w pwnagotchi.json.pkr.hcl
 
 bananapim2zero: builder/pwnagotchi.json.pkr.hcl builder/pwnagotchi.yml $(shell find builder/data -type f)
 	cd builder && $(UNSHARE) $(PACKER) build -var "pwn_hostname=$(PWN_HOSTNAME)" -var "pwn_version=$(PWN_VERSION)" -only=\*.bananapim2zero pwnagotchi.json.pkr.hcl
 
+bananapim4zero: builder/pwnagotchi.json.pkr.hcl builder/pwnagotchi.yml $(shell find builder/data -type f)
+	cd builder && $(UNSHARE) $(PACKER) build -var "pwn_hostname=$(PWN_HOSTNAME)" -var "pwn_version=$(PWN_VERSION)" -only=\*.bananapwnm4zero pwnagotchi.json.pkr.hcl
+
 images: $(SDIST) builder/pwnagotchi.json.pkr.hcl builder/pwnagotchi.yml $(shell find builder/data -type f)
-	$(PACKER) plugins install github.com/solo-io/arm-image
 	cd builder && $(UNSHARE) $(PACKER) build -var "pwn_hostname=$(PWN_HOSTNAME)" -var "pwn_version=$(PWN_VERSION)" -only=\*.pwnagotchi64,\*.pwnagotchi pwnagotchi.json.pkr.hcl
 
 bases: builder/pwnagotchi.json.pkr.hcl builder/pwnagotchi.yml $(shell find builder/data -type f)
 	cd builder && $(UNSHARE) $(PACKER) build -var "pwn_hostname=$(PWN_HOSTNAME)" -var "pwn_version=$(PWN_VERSION)" -only=\*.base-image,\*.base64-image pwnagotchi.json.pkr.hcl
 
 4images: $(SDIST) builder/pwnagotchi.json.pkr.hcl builder/pwnagotchi.yml $(shell find builder/data -type f)
-	$(PACKER) plugins install github.com/solo-io/arm-image
 	cd builder && $(UNSHARE) $(PACKER) build -var "pwn_hostname=$(PWN_HOSTNAME)" -var "pwn_version=$(PWN_VERSION)" -only=\*.pwnagotchi64,\*.pwnagotchi,\*.orangepwn02w,\*.bananapim2zero pwnagotchi.json.pkr.hcl
 
 
