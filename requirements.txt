@@ -8,16 +8,21 @@ tweepy
 file-read-backwards
 inky
 smbus2
-Pillow
+Pillow==8.1.2
 spidev
 gast
-flask
+flask==1.1.2
 flask-cors
 flask-wtf
 dbus-python
 toml
 python-dateutil
 websockets
+jinja2==3.0.3
+matplotlib>=3.8.2
+itsdangerous==1.1.2
+werkzeug==2.0.0
+
 
 # use these on 64-bit platforms for gym compatability
 # works on raspberry pi, orangepi zero 2w
