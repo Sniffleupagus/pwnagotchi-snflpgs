@@ -5,6 +5,7 @@ import contextlib
 import shutil
 import _thread
 import logging
+import prctl
 
 from time import sleep
 from distutils.dir_util import copy_tree
@@ -145,6 +146,7 @@ class MemoryFS:
 
     def daemonize(self, interval=60):
         logging.debug("[FS] Daemonized...")
+        prctl.set_name("[FS] daemon")
         while True:
             self.sync()
             sleep(interval)
