@@ -2,6 +2,7 @@ from threading import Event
 import _thread
 import logging
 import time
+import prctl
 
 import pwnagotchi.plugins as plugins
 
@@ -67,6 +68,7 @@ class Led(plugins.Plugin):
         self._led(0)
 
     def _worker(self):
+        prctl.set_name("led worker")
         while True:
             self._event.wait()
             self._event.clear()
