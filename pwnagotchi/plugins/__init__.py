@@ -6,7 +6,7 @@ import threading
 import importlib, importlib.util
 import logging
 import time
-
+import prctl
 
 
 default_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "default")
@@ -15,46 +15,89 @@ database = {}
 locks = {}
 exitFlag = 0
 plugin_event_queues = {}
+plugin_thread_workers = {}
 
 def dummy_callback():
     pass
 
+# callback to run "on_load" in a separate thread for old plugins
+# that use on_load like main() and don't return from on_load
+# until they are unloading
+def run_once(pqueue, event_name, *args, **kwargs):
+    try:
+        prctl.set_name("R1_%s_%s" % (pqueue.plugin_name, event_name))
+        pqueue.process_event(event_name, *args, *kwargs)
+        logging.debug("Thread for %s %s exiting" % (pqueue.plugin_name, event_name))
+    except Exception as e:
+        logging.exception("Thread for %s, %s, %s, %s" % (pqueue.plugin_name, event_name, repr(args), repr(kwargs)))
+
 class PluginEventQueue(threading.Thread):
     def __init__(self, plugin_name):
-        self.plugin_name = plugin_name
-        self.work_queue = queue.Queue()
-        self.queue_lock = threading.Lock()
-        threading.Thread.__init__(self)
-        self.keep_going = True
-        self.start()
+        try:
+            self._worker_thread = threading.Thread.__init__(self, daemon=True)
+            self.plugin_name = plugin_name
+            self.work_queue = queue.Queue()
+            self.queue_lock = threading.Lock()
+            self.load_handler = None
+            self.keep_going = True
+            logging.debug("PLUGIN EVENT QUEUE FOR %s starting %s" % (plugin_name, repr(self.load_handler)))
+            self.start()
+        except Exception as e:
+            logging.exception(e)
+
+    def __del__(self):
+        self.keep_going = False
+        self._worker_thread.join()
+        if self.load_handler:
+            self.load_handler.join()
 
     def AddWork(self, event_name, *args, **kwargs):
-        self.queue_lock.acquire()
-        self.work_queue.put([event_name, args, kwargs])
-        self.queue_lock.release()
+        if event_name == "loaded":
+            # spawn separate thread, because many plugins use on_load as a "main" loop
+            # this way on_load can continue if it needs, while other events get processed
+            try:
+                cb_name = 'on_%s' % event_name
+                callback = getattr(loaded[self.plugin_name], cb_name, None)
+                if callback:
+                    self.load_handler = threading.Thread(target=run_once,
+                                                         args=(self, event_name, *args),
+                                                         kwargs=kwargs,
+                                                         daemon=True)
+                    self.load_handler.start()
+                else:
+                    self.load_handler = None
+            except Exception as e:
+                logging.exception(e)
+        else:
+            self.work_queue.put([event_name, args, kwargs])
 
     def run(self):
         logging.debug("Worker thread starting for %s"%(self.plugin_name))
+        prctl.set_name("PLG %s" % self.plugin_name)
         self.process_events()
         logging.info("Worker thread exiting for %s"%(self.plugin_name))
+
+    def process_event(self, event_name, *args, **kwargs):
+        cb_name = 'on_%s' % event_name
+        callback = getattr(loaded[self.plugin_name], cb_name, None)
+        logging.debug("%s.%s: %s" % (self.plugin_name, event_name, repr(args)))
+        if callback:
+            callback(*args, **kwargs)
 
     def process_events(self):
         global exitFlag
         plugin_name = self.plugin_name
         work_queue = self.work_queue
 
-        try:
-            while not exitFlag and self.keep_going:
-                data = work_queue.get()
+        while not exitFlag and self.keep_going:
+            try:
+                data = work_queue.get(timeout=2)
                 (event_name, args, kwargs) = data
-                        
-                cb_name = 'on_%s' % event_name
-                callback = getattr(loaded[plugin_name], cb_name, None)
-                logging.debug("%s.%s" % (plugin_name, event_name))
-                if callback:
-                    callback(*args, **kwargs)
-        except Exception as e:
-            logging.exception(repr(e))
+                self.process_event(event_name, *args, **kwargs)
+            except queue.Empty as e:
+                pass
+            except Exception as e:
+                logging.exception(repr(e))
 
 class Plugin:
     @classmethod
@@ -107,6 +150,7 @@ def toggle_plugin(name, enable=True):
         if name in loaded and pwnagotchi.config and name in pwnagotchi.config['main']['plugins']:
             loaded[name].options = pwnagotchi.config['main']['plugins'][name]
         one(name, 'loaded')
+        time.sleep(3)
         if pwnagotchi.config:
             one(name, 'config_changed', pwnagotchi.config)
         one(name, 'ui_setup', view.ROOT)
@@ -153,6 +197,8 @@ def load_from_file(filename):
     spec = importlib.util.spec_from_file_location(plugin_name, filename)
     instance = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(instance)
+    if plugin_name not in plugin_event_queues:
+        plugin_event_queues[plugin_name] = PluginEventQueue(plugin_name)
     return plugin_name, instance
 
 
@@ -187,9 +233,12 @@ def load(config):
 
         # propagate options
         for name, plugin in loaded.items():
-            plugin.options = config['main']['plugins'][name]
+            if name in config['main']['plugins']:
+                plugin.options = config['main']['plugins'][name]
+            else:
+                plugin.options = {}
 
         on('loaded')
         on('config_changed', config)
     except Exception as e:
-        logging.error(repr(e))
+        logging.exception(repr(e))

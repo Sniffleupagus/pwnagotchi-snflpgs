@@ -7,6 +7,7 @@ from pwnagotchi import plugins
 from pwnagotchi.utils import StatusFile
 from flask import render_template_string
 from flask import jsonify
+import prctl
 
 TEMPLATE = """
 {% extends "base.html" %}
@@ -165,6 +166,7 @@ class GhettoClock:
         self._counter_thread.start()
 
     def counter(self):
+        prctl.set_name("SessStatClock")
         while True:
             with self.lock:
                 self._track += timedelta(seconds=1)
