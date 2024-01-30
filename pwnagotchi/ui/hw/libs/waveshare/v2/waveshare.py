@@ -51,13 +51,13 @@ import RPi.GPIO as GPIO
 from PIL import Image
 
 # Pin definition
-RST_PIN = 17
-DC_PIN = 25
-CS_PIN = 8
-BUSY_PIN = 24
+RST_PIN = 17     # board 11 H2 226
+DC_PIN = 25      # board 22 G1 193
+CS_PIN = 8       # board 24 H5 229
+BUSY_PIN = 24    # board 18 G9 201
 
 # SPI device, bus = 0, device = 0
-SPI = spidev.SpiDev(0, 0)
+SPI = spidev.SpiDev(1, 1)
 
 
 def digital_write(pin, value):
