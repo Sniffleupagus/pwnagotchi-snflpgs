@@ -1,6 +1,7 @@
 import os
 import logging
 import threading
+import prctl
 
 import pwnagotchi.plugins as plugins
 import pwnagotchi.ui.hw as hw
@@ -106,6 +107,7 @@ class Display(View):
         return img
 
     def _render_thread(self):
+        prctl.set_name("UI Render")
         """Used for non-blocking screen updating."""
 
         while True:
