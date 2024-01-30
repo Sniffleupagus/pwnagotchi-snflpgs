@@ -1,4 +1,4 @@
-NumChannels = 140
+NumChannels = 165
 NumChannelsExt = 165  # see https://github.com/evilsocket/pwnagotchi/issues/583
 
 
