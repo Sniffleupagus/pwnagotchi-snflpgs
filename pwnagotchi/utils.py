@@ -306,20 +306,37 @@ def secs_to_hhmmss(secs):
     return '%02d:%02d:%02d' % (hours, mins, secs)
 
 
-def total_unique_handshakes(path):
-    expr = os.path.join(path, "*.pcap")
-    return len(glob.glob(expr))
+_tot_u_shakes = 69
+_tot_u_update = 0
+
+def total_unique_handshakes(path, force=False):
+    try:
+        global _tot_u_shakes, _tot_u_update
+        if force or _tot_u_update < (time.time() - 300):
+            expr = os.path.join(path, "*.pcap")
+            _tot_u_shakes = len(glob.glob(expr))
+            _tot_u_update = time.time()
+            logging.info("got %s shakes" % _tot_u_shakes)
+    except Exception as e:
+        logging.exception(e)
+        _tot_u_shakes = 1
+
+    return _tot_u_shakes
 
 
-def iface_channels(ifname):
+
+def iface_channels(ifname, disabled=True):
     channels = []
 
     phy = subprocess.getoutput("/sbin/iw %s info | grep wiphy | cut -d ' ' -f 2" % ifname)
-    output = subprocess.getoutput("/sbin/iw phy%s channels | grep ' MHz' | grep -v disabled | sed 's/^.*\[//g' | sed s/\].*\$//g" % phy)
+    output = subprocess.getoutput("/sbin/iw phy%s channels | grep ' MHz' | sed 's/\[\([0-9]*\)\]/\\1/'" % phy)
     for line in output.split("\n"):
         line = line.strip()
+        if not disabled and "disabled" in line:
+            continue
         try:
-            channels.append(int(line))
+            parts = line.split(" ")
+            channels.append(int(parts[3]))
         except Exception as e:
             pass
 
