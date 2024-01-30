@@ -47,4 +47,6 @@ RPi.GPIO; platform_release=="6.1.21"
 # symlink to RPi.GPIO for pretty seamless replacement
 #git+https://github.com/Sniffleupagus/OPi.GPIO@BOARD-and-BCM-to-sunxi-numbers#egg=OPi.GPIO ; platform_release=="6.1.31-sun50iw9"
 
+#git+https://github.com/Sniffleupagus/OPi.GPIO@BPIm4zero#egg=OPi.GPIO ; platform_release=="6.1.31-sun50iw9"
+
 rpi_hardware_pwm; platform_release=="6.1.21"
