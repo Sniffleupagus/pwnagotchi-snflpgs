@@ -1,70 +1,19 @@
 ---
 - hosts:
     - 127.0.0.1
+  max_fail_percentage: 50
+  
   gather_facts: true
   become: true
   vars:
     boards:
-      - {
-        kernel: "6.1.21+",
-        name: "PiZeroW",
-        firmware: "brcmfmac43430-sdio.bin",
-        patch: "bcm43430a1/7_45_41_46",
-        cpu: arm1176,
-        arch: "armv6l"
-        }
-      - {
-        kernel: "6.1.62-current-sunxi",
-        name: "BananaPiM2Zero",
-        firmware: "brcmfmac43430-sdio.bin",
-        patch: "bcm43430a1/7_45_41_46",
-        cpu: any,
-        arch: "armv7l"
-        }
-      - {
-        kernel: "6.1.21-v7+",
-        name: "PiZero2W",
-        firmware: "brcmfmac43436-sdio.bin",
-        patch: "bcm43436b0/9_88_4_65",
-        cpu: any,
-        arch: "armv7l"
-        }
-      - {
-        kernel: "6.1.21-v7l+",
-        name: "Pi4b_32",
-        firmware: "brcmfmac43455-sdio.bin",
-        patch: "bcm43455c0/7_45_206",
-        cpu: any,
-        arch: "armv7l"
-        }
-      - {
-        kernel: "6.1.21-v8+",
-        name: "PiZero2W/1",
-        firmware: "brcmfmac43430-sdio.bin",
-        patch: "bcm43430a1/7_45_41_46",
-        cpu: any,
-        arch: "aarch64"
-        }
-      - {
-        kernel: "6.1.21-v8+",
-        name: "PiZero2W/2",
-        firmware: "brcmfmac43436-sdio.bin",
-        patch: "bcm43436b0/9_88_4_65",
-        cpu: any,
-        arch: "aarch64"
-        }
-      - {
-        kernel: "6.1.21-v8+",
-        name: "Pi4b_64",
-        firmware: "brcmfmac43455-sdio.bin",
-        patch: "bcm43455c0/7_45_206",
-        cpu: any,
-        arch: "aarch64"
-        }
     staging: "/root/staging/{{ ansible_architecture }}"
+    packer:
+      build: "unspecified {{ansible_architecture}}"
+    default_hostname: "raspberrypi"
     kernel:
       min: "6.1"
-      full: "6.1.21+"
+      full: "6.1.21"
       full_2w: "6.1.21-v7+"
       full_4b: "6.1.21-v7l+"
       full_opi: "6.1.31-sun50iw9"
@@ -72,11 +21,14 @@
     pwnagotchi:
       hostname: "{{ lookup('env', 'PWN_HOSTNAME') | default('pwnagotchi', true) }}"
       version: "{{ lookup('env', 'PWN_VERSION') | default('pwnagotchi-sniffleupagus', true) }}"
+      build: "{{ lookup('env', 'PWN_BUILD') }}"      
       custom_plugin_dir: "/usr/local/share/pwnagotchi/custom-plugins"
+      wheel: "pwnagotchi-{{ lookup('env', 'PWN_VERSION') | default('*', true) }}-py3-none-any.whl"
       display:
         type: "displayhatmini"
         enabled: "true"
     system:
+      pip_extra_args: "--no-cache-dir"
       boot_options:
         - "#### pwnagotchi additions"
         - ""
@@ -123,14 +75,6 @@
         ui: "https://github.com/bettercap/ui/releases/download/v1.3.0/ui.zip"
       pwngrid:
         url: "https://github.com/jayofelony/pwngrid.git"
-      torch:
-        wheel: "torch-2.1.0a0+gitunknown-cp39-cp39-linux_armv6l.whl"
-        url: "https://github.com/Sniffleupagus/Torch4Pizero/releases/download/v1.0.0/torch-2.1.0a0+gitunknown-cp39-cp39-linux_armv6l.whl"
-        repo: "https://github.com/pytorch/pytorch.git"
-      torchvision:
-        wheel: "torchvision-0.16.0a0-cp39-cp39-linux_armv6l.whl"
-        repo: "https://github.com/pytorch/vision.git"
-        url: "https://github.com/Sniffleupagus/Torch4Pizero/releases/download/v1.0.0/torchvision-0.16.0a0-cp39-cp39-linux_armv6l.whl"
 
       apt:
         downgrade:
@@ -202,13 +146,23 @@
           - libusb-1.0-0-dev
           - lsof
           - make
+          #- python3-charset-normalizer
           - python3-flask
           - python3-flask-cors
           - python3-flaskext.wtf
+          - python3-fsspec
+          - python3-networkx
+          - python3-oauthlib
+          - python3-pandas
           - python3-pil
           - python3-pip
           - python3-protobuf
+          - python3-pycryptodome
+          - python3-requests
+          - python3-scapy
           - python3-smbus
+          - python3-sympy
+          - python3-tweepy
           - qpdf
           - rsync
           - screen
@@ -222,7 +176,10 @@
           - wl
           - xxd
           - zlib1g-dev
-        install_rpi:
+    # move packages from above into extras when some builds need to override
+    extras:
+      apt:
+        install:
           - libavcodec58
           - libavformat58
           - libswscale5
@@ -231,31 +188,37 @@
           - libraspberrypi-dev
           - libraspberrypi-doc
           - libraspberrypi0
-        install_opi:
-          - libavcodec58
-          - libavformat58
-          - libswscale5
-          - libtiff5
-          - python3-spidev
-          - spi-tools
-        install_bpi:
-          - cmake
-          - libavcodec58
-          - libavformat58
-          - libswscale5
-          - libtiff5
-          - net-tools
-          - ninja-build
-          - python3-dev
-          - python3-dbus
-          - python3-numpy
-          - spi-tools
+
   environment:
     #ARCHFLAGS: -arch armv6l
     #QEMU_CPU: arm1176
     #QEMU_UNAME: "{{ kernel.full }}"
 
   tasks:
+  - name: ntfy starting notice
+    uri:
+      url: "https://ntfy.sh/pwny_builder"
+      method: POST
+      body: "{{pwnagotchi.build}} ansible starting tasks"
+
+  - name: "Include vars for {{pwnagotchi.build}}"
+    ansible.builtin.include_vars: "vars/{{pwnagotchi.build}}_vars.yml"
+      
+  - name: Fix DTB file for GPIO displays
+    tags:
+      - no_orangepi
+      - no_raspi
+    block:
+      - name: Back up Original DTB file
+        copy:
+          src: /boot/dtb/allwinner/sun50i-h618-bananapi-m4zero.dtb
+          dest: /boot/dtb/allwinner/sun50i-h618-bananapi-m4zero.dtb.ORIG
+          
+      - name: Back up Original DTB file
+        copy:
+          src: data/boot/dtb/allwinner/sun50i-h618-bananapi-m4zero-pwnagotchi.dtb
+          dest: /boot/dtb/allwinner/sun50i-h618-bananapi-m4zero.dtb
+          
   - name: Print all available facts
     ansible.builtin.debug:
       var: ansible_facts
@@ -270,12 +233,14 @@
 
   - name: "Create pwnagotchi user, defauilt password pwny1234"
     user:
-      name: pwny
+      name: pwnagotchi
       shell: /bin/bash
       groups: "daemon,adm,sudo"
-      password: $6$3jNr0GA9KIyt4hmM$efeVIopdMQ8DGgEPCWWlbx3mJJNAYci1lEXGdlky0xPyjqwKNbwTL5SrCcpb4144C4IvzWjn7Iv.QjqmU7iyT/
-      home: /home/pwny
+      password: $1$eAz2hrdt$KBs24qNRPHaKYeSomEZJn1
+      home: /home/pwnagotchi
       create_home: true
+      skeleton: /etc/skel
+      comment: "Bpi-m4zero Pwnagotchi"
     register: pwnagotchi_user
     ignore_errors: true
 
@@ -291,19 +256,13 @@
   - name: change hostname
     lineinfile:
       dest: /etc/hostname
-      regexp: "^{{hname}}"
+      regexp: "^{{default_hostname}}"
       line: "{{pwnagotchi.hostname}}"
       state: present
-    when: lookup('file', '/etc/hostname') == "raspberrypi"
+    when: lookup('file', '/etc/hostname') == default_hostname
     register: hostname
     tags:
       - base
-    loop_control:
-      loop_var: hname
-    loop:
-      - raspberrypi
-      - bananapim2zero
-      - orangepizero2w
 
   - name: add hostname to /etc/hosts
     lineinfile:
@@ -324,7 +283,6 @@
     tags:
       - base
       - no_orangepi
-      - no_bananapi
     ignore_errors: true
 
   - name: disable sap plugin for bluetooth.service in /usr/libexec
@@ -336,7 +294,6 @@
     tags:
       - base
       - no_orangepi
-      - no_bananapi
     ignore_errors: true
 
   - name: configure dphys-swapfile
@@ -349,6 +306,7 @@
       - no_orangepi
       - no_bananapi
 
+  # just did this in packer, no need to repeat it
   - name: update apt package cache
     apt:
       update_cache: yes
@@ -357,60 +315,27 @@
     apt:
       name: "{{ packages.apt.install }}"
       state: present
-
-  - name: install packages for raspberry pi
+      
+  - name: "Install extra apt packages for {{pwnagotchi.build}}"
+    when: extras.apt.install is defined
     apt:
-      name: "{{ packages.apt.install_rpi }}"
+      name: "{{ extras.apt.install }}"
       state: present
-    tags:
-      - no_orangepi
-      - no_bananapi
-
-  - name: install packages for orange pi
-    apt:
-      name: "{{ packages.apt.install_opi }}"
-      state: present
-    tags:
-      - orangepi
-      - no_bananapi
-      - no_raspi
-
-  - name: install packages for banana pi
-    apt:
-      name: "{{ packages.apt.install_bpi }}"
-      state: present
-    tags:
-      - bananapi
-      - no_orangepi
-      - no_raspi
-
+      
   #######
   # Pip3
   #######
   
   - name: update pip3, setuptools, wheel
-    shell: "python3 -m pip install --upgrade pip setuptools wheel"
+    shell: "python3 -m pip install --upgrade pip setuptools wheel {{system.pip_extra_args}}"
     args:
       executable: /bin/bash
       chdir: /usr/local/src
-    tags:
-      - no_nuthin
-
-  # alt install with --break-system-packages on newer systems that want venv
-  # eventually install with venv instead of this
-  - name: update pip3, setuptools, wheel (--break-system-packages)
-    shell: "python3 -m pip install --upgrade pip setuptools wheel --break-system-packages"
-    args:
-      executable: /bin/bash
-      chdir: /usr/local/src
-    tags:
-      - no_orangepi
-      - no_raspi
-      - no_bananapi
 
   # or build torch and torchvision
+  # maybe someday
   - name: "Install support package: {{package.name}}"
-    when: ansible_architecture == "armv6l"
+    when: torch is defined
     include_tasks: build_torch_wheel.yml
     tags:
       - only32
@@ -420,12 +345,11 @@
       label: "{{package.name}}"
     loop:
       - name: pytorch
-        url: "{{ packages.torch.repo }}"
+        url: "{{ torch.repo }}"
         version: "release/2.1"
         wheel: "torch-2.1.0-cp39-cp39-linux_{{ansible_architecture}}.whl"
-
       - name: vision
-        url: "{{ packages.torchvision.repo }}"
+        url: "{{ torchvision.repo }}"
         version: "release/0.16"
         wheel: "torchvision-0.16.0-cp39-cp39-linux_{{ansible_architecture}}.whl"
 
@@ -477,10 +401,33 @@
           src: "/usr/local/lib/libpcap.so.1.9.1"
           dest: "/usr/local/lib/libpcap.so.0.8"
           state: link
+    rescue:
+      - name: Print libpcap errors
+        ansible.builtin.debug:
+          var: stdout_lines
+        ignore_errors: true
 
+  # - name: "NTFY libpcap is ready"
+  #   ntfy:
+  #     msg:"done with libpcap"
+  #     topic: "pwny_builder"
+  #     attrs:
+  #       tags: [ rotating_light, heavy_check_mark ]
+  #       priority: 5
+  #       actions:
+  #         - action: view
+  #           label: "3D-Printer"
+  #           url: "https://orbison.lan/"
+            
   #############
   # PWNAGOTCHI
   #############
+  - name: ntfy pwnagotchi notice
+    uri:
+      url: "https://ntfy.sh/pwny_builder"
+      method: POST
+      body: "{{pwnagotchi.build}} starting pwnagotchi wheel"
+
   - name: clone pwnagotchi repository
     git:
       repo: https://github.com/Sniffleupagus/pwnagotchi-snflpgs.git
@@ -503,7 +450,13 @@
       - 'stable_baselines'
       - 'rpi_hardware_pwm'
 
-    
+  - name: "Install extra pip packages for {{pwnagotchi.build}}"
+    when: extras.pip is defined
+    pip:
+      name: "{{extras.pip}}"
+      extra_args: "{{system.pip_extra_args}}"
+    ignore_errors: true
+
   # is this even necessary? Can't we just link from /home/pi/pwnagotchi to /usr/local/{bin,lib,etc}
   # then just git update in the home dir and encourage hacking?
   # make owned by pi.pi, and custom plugins.
@@ -522,101 +475,66 @@
 
   # precompiled wheels for armv6l Raspberry Pi Zero W
   - name: "Download prebuilt 32-bit torch wheels for armv6l"
-    when: ansible_architecture == "armv6l"
+    when: torch is defined
     ansible.builtin.get_url:
       url: "{{ item }}"
       dest: "{{staging}}/wheels"
     loop:
-      - "{{ packages.torch.url }}"
-      - "{{ packages.torchvision.url }}"
+      - "{{ torch.url }}"
+      - "{{ torchvision.url }}"
     register: torchwheels
     tags:
       - only32
       - no_bananapi
 
-  - name: "install 32-bit pwnagotchi wheel and dependencies with 32-bit torch wheels {{staging}} {{ansible_architecture}}.whl"
-    retries: 5
-    delay: 69
-    pip:
-      name:
-        - "{{ lookup('fileglob', '/usr/local/src/pwnagotchi/dist/pwnagotchi*.whl') }}"
-        - "{{ packages.torch.url }}"
-        - "{{ packages.torchvision.url }}"
+  - name: "Install pwnagotchi"
+    when:
+      - (pwnagotchigit.changed) or (pip_packages['pwnagotchi'] is undefined) or (pip_packages['pwnagotchi'] != pwnagotchi_version)
     environment:
-      #QEMU_CPU: arm1176
-      #QEMU_UNAME: "{{ kernel.full }}"
-    when: (pwnagotchigit.changed) or (pip_packages['pwnagotchi'] is undefined) or (pip_packages['pwnagotchi'] != pwnagotchi_version)
-    tags:
-      - pwnagotchi
-      - only32
-      - no_bananapi
-    register: result
-    until: result is not failed
-
-  - name: install 32-bit pwnagotchi wheel and dependencies without torch
-    tags:
-      - pwnagotchi
-      - only32
-      - no_raspi
-    when: (pwnagotchigit.changed) or (pip_packages['pwnagotchi'] is undefined) or (pip_packages['pwnagotchi'] != pwnagotchi_version)
+      QEMU_UNAME: "{{ kernel.full }}"
     block:
-      - name: "Install pwnagotchi wheel without torch"
+      - name: "install pwnagotchi wheel with staged torch wheels {{staging}} {{ansible_architecture}}"
+        when:
+          - torch is defined
+          - torchvision is defined
         pip:
           name:
-            - "{{ lookup('fileglob', '/usr/local/src/pwnagotchi/dist/pwnagotchi*.whl') }}"
-        environment:
-          #QEMU_CPU: arm1176
-          #QEMU_UNAME: "{{ kernel.full }}"
+            - "{{pwnagotchi.wheel}}"
+            - "{{ torch.url }}"
+            - "{{ torchvision.url }}"
+          extra_args: "{{system.pip_extra_args}}"
+          chdir: "/usr/local/src/pwnagotchi/dist/"
+        register: result
+        retries: 5
+        delay: 20
+        until: result is not failed
+
+      - name: "install pwnagotchi wheel {{staging}} {{pwnagotchi.wheel}}"
+        when:
+          - torch is undefined
+        pip:
+          name: "{{pwnagotchi.wheel}}"
+          extra_args: "{{system.pip_extra_args|default('')}}"
+          chdir: "/usr/local/src/pwnagotchi/dist/"
         register: result
         #retries: 3
         #delay: 10
         #until: result is not failed
 
-  - name: install 64-bit pwnagotchi wheel and dependencies
-    pip:
-      name:
-        - "{{ lookup('fileglob', '/usr/local/src/pwnagotchi/dist/pwnagotchi*.whl') }}"
-    environment:
-      #QEMU_UNAME: "{{ kernel.full }}"
-    when: (pwnagotchigit.changed) or (pip_packages['pwnagotchi'] is undefined) or (pip_packages['pwnagotchi'] != pwnagotchi_version)
-    tags:
-      - pwnagotchi
-      - only64
-    register: result
-    retries: 5
-    delay: 30
-    until: result is not failed
+  - name: ntfy pwny wheel notice
+    uri:
+      url: "https://ntfy.sh/pwny_builder"
+      method: POST
+      body: "{{pwnagotchi.build}} pwnagotchi wheel done"
 
-  - name: install 64-bit pwnagotchi wheel and dependencies (--break-system-packages)
-    pip:
-      name:
-        - "{{ lookup('fileglob', '/usr/local/src/pwnagotchi/dist/pwnagotchi*.whl') }}"
-      extra_args: "--no-cache-dir --break-system-packages"
-    when: (pwnagotchigit.changed) or (pip_packages['pwnagotchi'] is undefined) or (pip_packages['pwnagotchi'] != pwnagotchi_version)
-    tags:
-      - pwnagotchi
-      - only64
-      - no_orangepi
-      - no_raspi
+  # - name: "NTFY pwnywheel is ready"
+  #   ntfy:
+  #     msg:"done with pwny wheel"
+  #     topic: "pwny_builder"
+  #     attrs:
+  #       tags: [ heavy_check_mark ]
 
-  - name: "Install RPi.GPIO on banana pi"
-    pip:
-      name: "git+https://github.com/BPI-SINOVOIP/RPi.GPIO#egg=RPi.GPIO"
-    tags:
-      - no_raspi
-      - no_orangepi
-      - bananapi
-    ignore_errors: true
-
-  - name: "Install OPi.GPIO on orange pi"
-    pip:
-      name: "git+https://github.com/Sniffleupagus/OPi.GPIO@BOARD-and-BCM-to-sunxi-numbers#egg=OPi.GPIO"
-    tags:
-      - orangepi
-      - no_raspi
-      - no_bananapi
-    ignore_errors: true
-
+  # This should be a OPi specific handler, included with an OPi role
   - name: "Link OPi.GPIO to RPi.GPIO, to truly seamlessly replace."
     file:
       src: "/usr/local/lib/python3.9/dist-packages/OPi"
@@ -635,7 +553,7 @@
 
   - name: copy pwnagotchi wheel to staging dir
     ansible.builtin.copy:
-      src: "{{ lookup('fileglob', '/usr/local/src/pwnagotchi/dist/pwnagotchi*.whl') }}"
+      src: "{{ lookup('fileglob', '/usr/local/src/pwnagotchi/dist/{{pwnagotchi.wheel}}') }}"
       dest: "{{ staging }}/wheels"
     tags: pwnagotchi
 
@@ -646,16 +564,17 @@
     tags: pwnagotchi
 
   #########################################################
-  # Install nexmon to get monitor mode on built-in Pi-WiFi
+  # Install nexmon to get monitor mode on built-in Pi WiFi
   #########################################################
 
-  - name: build and install nexmon as needed
+  - name: build and install nexmon
     include_tasks: nexmon.yml
     loop: "{{ boards }}"
     loop_control:
       loop_var: board
       label: "{{board.name}}"
     tags:
+      - no_bananapim4zero
       - no_orangepi
 
   # To shrink the final image, remove the nexmon directory (takes 2.5G of space) post build and installation
@@ -675,18 +594,24 @@
     register: bettercap
 
   - block:
-      - name: install bettercap if missing
-        when: not bettercap.stat.exists
-        include_tasks: build_install_gopkg.yml
-        vars:
-          item:
-            name: bettercap
-            url: '{{ packages.bettercap.url }}'
+    - name: "install bettercap if missing"
+      when: not bettercap.stat.exists
+      include_tasks: build_install_gopkg.yml
+      vars:
+        item:
+          name: bettercap
+          url: '{{ packages.bettercap.url }}'
     environment:
       GOPATH: "{{ lookup('env', 'HOME') }}/go"
       PATH: "/usr/local/go/bin:{{ lookup('env', 'PATH') }}"
-      GOPROXY: http://127.0.0.1:8080,direct
-      GOSUMDB: off
+      #GOPROXY: "http://127.0.0.1:8080"
+      GOSUMDB: "off"
+
+  - name: ntfy bettercap notice
+    uri:
+      url: "https://ntfy.sh/pwny_builder"
+      method: POST
+      body: "{{pwnagotchi.build}} bettercap done"
 
   - name: check for /usr/local/bin/pwngrid
     stat: path=/usr/local/bin/pwngrid
@@ -703,8 +628,21 @@
     environment:
       GOPATH: "{{ lookup('env', 'HOME') }}/go"
       PATH: "/usr/local/go/bin:{{ lookup('env', 'PATH') }}"
-      GOPROXY: http://127.0.0.1:8080,direct
-      GOSUMDB: off
+      #GOPROXY: "http://127.0.0.1:8080,direct"
+      GOSUMDB: "off"
+
+  - name: ntfy pwngrid notice
+    uri:
+      url: "https://ntfy.sh/pwny_builder"
+      method: POST
+      body: "{{pwnagotchi.build}} pwngrid done"
+
+  # - name: "NTYF Go pkgs are done"
+  #   ntfy:
+  #     msg:"done with go pkgs"
+  #     topic: "pwny_builder"
+  #     attrs:
+  #       tags: [ heavy_check_mark ]
 
   - name: clone bettercap caplets
     git:
@@ -741,7 +679,9 @@
         if ! /opt/vc/bin/tvservice -s | egrep 'HDMI|DVI'; then
           /opt/vc/bin/tvservice -o
         fi
-    tags: no_orangepi
+    tags:
+      - no_orangepi
+      - no_bananapi
 
   - name: create /etc/pwnagotchi folder
     file:
@@ -849,12 +789,18 @@
         file:
           state: absent
           path: /etc/update-motd.d/10-uname
+        tags:
+          - base
+          - no_bananapi
 
       - name: enable ssh on boot
         file:
           path: /boot/ssh
           state: touch
-        tags: base
+        tags:
+          - base
+          - no_bananapi
+        
 
       - name: disable wlan0 in dhcpcd.conf
         lineinfile:
@@ -864,6 +810,7 @@
         tags:
           - base
           - no_orangepi
+          - no_bananapi
 
       - name: adjust /boot/config.txt
         lineinfile:
@@ -874,6 +821,7 @@
         tags:
           - pwnagotchi
           - no_orangepi
+          - no_bananapi
 
       - name: adjust /etc/modules
         lineinfile:
@@ -883,7 +831,6 @@
         with_items: "{{system.modules}}"
         tags:
           - pwnagotchi
-          - no_orangepi
 
       - name: change root partition
         replace:
@@ -894,6 +841,7 @@
         tags:
           - base
           - no_orangepi
+          - no_bananapi
 
       - name: configure /boot/cmdline.txt
         lineinfile:
@@ -906,14 +854,22 @@
         tags:
           - pwnagotchi
           - no_orangepi
+          - no_bananapi
 
+      - name: configure bananapim4zero /boot/bananapiEnv.txt
+        lineinfile:
+          path: /boot/bananapiEnv.txt
+          state: present
+          regexp: '^overlays='
+          line: 'overlays=ph-i2c1 pg-i2c4 pg-uart1 spi0-spidev spi1-cs1-spidev'
+        tags:
+          - no_raspi
+          - no_orangepi
 
       - name: configure g_ether options for repeatable RNDIS device
         copy:
           dest: /etc/modprobe.d/g_ether.conf
-          content: "options g_ether use_eem=0 host_addr=f0:0d:ba:be:f0:0d dev_addr=58:70:77:6e:79:58"
-        tags:
-          - no_orangepi
+          content: "options g_ether host_addr=f0:0d:ba:be:f0:0d dev_addr=58:70:77:6e:79:58"
 
       - name: clone Sniffleupagus pwny utils
         git:
@@ -934,8 +890,8 @@
         file:
           path: "{{pwnagotchi_user.home}}/.local/bin"
           mode: '755'
-          owner: 'pi'
-          group: 'pi'
+          owner: '{{pwnagotchi_user.name}}'
+          group: '{{pwnagotchi_user.group}}'
           state: directory
         tags: pwnagotchi
 
@@ -1008,7 +964,6 @@
         with_items: '{{ sniffleupagus_plugins.files }}'
         tags: pwnagotchi
 
-
       - name: "Add {{alias}} alias to {{pwnagotchi_user.home}}/.bashrc"
         lineinfile:
           dest: "{{pwnagotchi_user.home}}/.bashrc"
@@ -1047,6 +1002,12 @@
           state: stopped
         with_items: "{{ services.enable }}"
         tags: pwnagotchi
+
+      - name: ntfy removing files
+        uri:
+          url: "https://ntfy.sh/pwny_builder"
+          method: POST
+          body: "{{pwnagotchi.build}} removing unnecessary build files"
 
       - name: remove golang build libraries
         file:

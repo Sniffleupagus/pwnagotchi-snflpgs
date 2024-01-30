@@ -30,6 +30,7 @@ def load(config, agent, epoch, from_disk=True):
                     if key in config['params']:
                         logging.info("Removing legacy ai parameter %s" % key);
                         del config['params'][key]
+                config['channels'] = []
             except Exception as err:
                 logging.warn(repr(err))
 

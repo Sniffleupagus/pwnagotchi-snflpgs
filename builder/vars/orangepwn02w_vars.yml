@@ -1,0 +1,25 @@
+---
+# variables for orangepi02w
+# no boards for nexmon
+boards:
+default_hostname: "orangepizero2w"
+kernel:
+  min: "6.1"
+  full: "6.1.31-sun50iw9"
+  full_opi: "6.1.31-sun50iw9"
+system:
+  pip_extra_args: "--no-cache-dir"
+  modules:
+    - g_ether
+extras:
+  apt:
+    install:
+      - libavcodec58
+      - libavformat58
+      - libswscale5
+      - libtiff5
+      - python3-spidev
+      - spi-tools
+  pip:
+    - "git+https://github.com/Sniffleupagus/OPi.GPIO@BOARD-and-BCM-to-sunxi-numbers#egg=OPi.GPIO"
+  pwnagotchi:

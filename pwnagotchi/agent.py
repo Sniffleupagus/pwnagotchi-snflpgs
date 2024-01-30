@@ -5,6 +5,7 @@ import re
 import logging
 import asyncio
 import _thread
+import prctl
 
 import pwnagotchi
 import pwnagotchi.utils as utils
@@ -36,6 +37,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         self._tot_aps = 0
         self._aps_on_channel = 0
         self._supported_channels = utils.iface_channels(config['main']['iface'])
+        self._allowed_channels = utils.iface_channels(config['main']['iface'], disabled=False)
         self._view = view
         self._view.set_agent(self)
         self._web_ui = Server(self, config['ui'])
@@ -44,6 +46,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         self._last_pwnd = None
         self._history = {}
         self._handshakes = {}
+        self._total_u_shakes = -1
         self.last_session = LastSession(self._config)
         self.mode = 'auto'
 
@@ -62,6 +65,9 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
 
     def supported_channels(self):
         return self._supported_channels
+
+    def allowed_channels(self):
+        return self._allowed_channels
 
     def setup_events(self):
         logging.info("connecting to %s ...", self.url)
@@ -104,6 +110,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                     time.sleep(1)
 
         logging.info("supported channels: %s", self._supported_channels)
+        logging.info("allowed channels: %s", self._allowed_channels)
         logging.info("handshakes will be collected inside %s", self._config['bettercap']['handshakes'])
 
         self._reset_wifi_settings()
@@ -122,7 +129,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
     def _wait_bettercap(self):
         while True:
             try:
-                _s = self.session()
+                _s = self.session(sess="session/wifi")
                 return
             except Exception:
                 logging.info("waiting for bettercap API to be available ...")
@@ -176,15 +183,15 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         return self._access_points
 
     def get_access_points(self):
-        whitelist = self._config['main']['whitelist']
+        whitelist = list(map(lambda x: x.lower(), self._config['main']['whitelist']))
         aps = []
         try:
-            s = self.session()
-            plugins.on("unfiltered_ap_list", self, s['wifi']['aps'])
-            for ap in s['wifi']['aps']:
+            s = self.session(sess="session/wifi")
+            plugins.on("unfiltered_ap_list", self, s['aps'])
+            for ap in s['aps']:
                 if ap['encryption'] == '' or ap['encryption'] == 'OPEN':
                     continue
-                elif ap['hostname'] not in whitelist \
+                elif ap['hostname'].lower() not in whitelist \
                         and ap['mac'].lower() not in whitelist \
                         and ap['mac'][:8].lower() not in whitelist:
                     if self._filter_included(ap):
@@ -234,7 +241,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                 return (ap, {'mac': station_mac, 'vendor': ''})
         return None
 
-    def _update_uptime(self, s):
+    def _update_uptime(self):
         secs = pwnagotchi.uptime()
         self._view.set('uptime', utils.secs_to_hhmmss(secs))
         # self._view.set('epoch', '%04d' % self._epoch.epoch)
@@ -253,10 +260,11 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             self._view.set('sta', '%d (%d)' % (stas_on_channel, tot_stas))
 
     def _update_handshakes(self, new_shakes=0):
-        if new_shakes > 0:
+        if new_shakes > 0 or self._total_u_shakes < 0:
             self._epoch.track(handshake=True, inc=new_shakes)
+            self._total_u_shakes =  utils.total_unique_handshakes(self._config['bettercap']['handshakes'],force=True)
 
-        tot = utils.total_unique_handshakes(self._config['bettercap']['handshakes'])
+        tot = self._total_u_shakes
         txt = '%d (%d)' % (len(self._handshakes), tot)
 
         if self._last_pwnd is not None:
@@ -312,27 +320,40 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
 
     def _fetch_stats(self):
         # adding bettercap watchdog here
+        prctl.set_name("Fetch stats")
         restart_monitor = False
+
         while True:
+            last = time.time()
+            s = None
+            # this part polls bettercap, which is a huge waste of CPU
+            # plus it doesn't use any of the returned state
             try:
-                s = self.session()
                 if restart_monitor:
                     logging.info("resetting bettercap is so fetch")
                     self._reset_wifi_settings()
                     if self.mode != 'manual':
                         self.run('wifi.recon on')
+                    prctl.set_name("Fetch stats [OK]")
                     restart_monitor = False
+                #s = self.session("session/wifi")
             except Exception as err:
                 logging.error("[agent:_fetch_stats] self.session: %s" % repr(err))
+                prctl.set_name("Fetch stats [bc]")
                 restart_monitor = True
 
             try:
-                self._update_uptime(s)
+                self._update_uptime()
             except Exception as err:
                 logging.error("[agent:_fetch_stats] self.update_uptimes: %s" % repr(err))
 
             try:
-                self._update_advertisement(s)
+                self._update_handshakes(0)
+            except Exception as err:
+                logging.error("[agent:_fetch_stats] self.update_handshakes: %s" % repr(err))
+
+            try:
+                self._update_advertisement()
             except Exception as err:
                 logging.error("[agent:_fetch_stats] self.update_advertisements: %s" % repr(err))
 
@@ -344,17 +365,16 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                 self._update_counters()
             except Exception as err:
                 logging.error("[agent:_fetch_stats] self.update_counters: %s" % repr(err))
-            try:
-                self._update_handshakes(0)
-            except Exception as err:
-                logging.error("[agent:_fetch_stats] self.update_handshakes: %s" % repr(err))
-
-            time.sleep(5)
+            now = time.time()
+            prctl.set_name("Fetchstats %.2f" % (now-last))
+            time.sleep(10)
 
 
     async def _on_event(self, msg):
         found_handshake = False
         jmsg = json.loads(msg)
+        if 'tag' in jmsg:
+            prctl.set_name(jmsg['tag'])
 
         # give plugins access to the events
         try:
@@ -392,12 +412,14 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
     def _event_poller(self, loop):
         self._load_recovery_data()
         self.run('events.clear')
+        prctl.set_name("bettercap monitor")
 
         while True:
             logging.debug("[agent:_event_poller] polling events ...")
             try:
                 loop.create_task(self.start_websocket(self._on_event))
                 loop.run_forever()
+
                 logging.debug("[agent:_event_poller] loop loop loop")
             except Exception as ex:
                 logging.debug("[agent:_event_poller] Error while polling via websocket (%s)", ex)

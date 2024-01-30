@@ -2,7 +2,7 @@ import os
 import logging
 import time
 import re
-
+import prctl
 
 
 from pwnagotchi._version import __version__
@@ -112,6 +112,7 @@ def temperature(celsius=True):
 
 def shutdown():
     logging.warning("shutting down ...")
+    prctl.set_name("pwny shutdown")
 
     from pwnagotchi.ui import view
     if view.ROOT:
@@ -130,6 +131,7 @@ def shutdown():
 
 
 def restart(mode):
+    prctl.set_name("pwny restart %s" % mode)
     logging.warning("restarting in %s mode ...", mode)
 
     if mode == 'AUTO':
@@ -142,6 +144,7 @@ def restart(mode):
 
 
 def reboot(mode=None):
+    prctl.set_name("pwny reboot %s" % repr(mode))
     if mode is not None:
         mode = mode.upper()
         logging.warning("rebooting in %s mode ...", mode)

@@ -9,81 +9,125 @@ packer {
 
 variable "pwn_hostname" {
   type = string
+  default = "pwnagotchi"
 }
 
 variable "pwn_version" {
   type = string
+  description = "Pwnagotchi software version"
 }
 
-
-source "arm-image" "base-image" {
-  iso_checksum      = "file:/home/vagrant/images/2023-05-03-raspios-bullseye-armhf-lite.img.xz.sha256"
-  iso_url           = "file:/home/vagrant/images/2023-05-03-raspios-bullseye-armhf-lite.img.xz"
-  output_filename   = "/pwnystable/images/base_raspios-bullseye-armhf.img"
-  qemu_args         = ["-cpu", "arm1176"]
-  image_arch        = "arm"
-  target_image_size = 9368709120
+variable "stage_root" {
+  type = string
+  description = "Path to staging directory"
+  default = "/pwnystable/stage"
 }
 
-source "arm-image" "base64-image" {
-  iso_checksum      = "file:/home/vagrant/images/2023-05-03-raspios-bullseye-arm64-lite.img.xz.sha256"
-  iso_url           = "file:/home/vagrant/images/2023-05-03-raspios-bullseye-arm64-lite.img.xz"
-  output_filename   = "/pwnystable/images/base_raspios-bullseye-aarch64.img"
-  image_arch        = "arm64"
-  target_image_size = 9368709120
+variable "image_root" {
+  type = string
+  description = "Path to disk image directory"
+  default = "/pwnystable/images"
+}
+
+variable "target_image_size" {
+  type = string
+  description = "Size of image to build in bytes"
+  default = "9368709120"
 }
 
 source "arm-image" "pwnagotchi" {
-  iso_checksum      = "file:/pwnystable/images/base_raspios-bullseye-armhf.img.xz.sha256"
-  iso_url           = "file:/pwnystable/images/base_raspios-bullseye-armhf.img.xz"
-  output_filename   = "/pwnystable/images/pwnagotchi-${var.pwn_version}-armhf.img"
-  qemu_args         = ["-cpu", "arm1176"]
-  image_arch        = "arm"
-  target_image_size = 9368709120
+  output_filename   = "${var.image_root}/${source.name}-${var.pwn_version}.img"
+  target_image_size = "${var.target_image_size}"
 }
 
-source "arm-image" "pwnagotchi64" {
-  iso_checksum      = "file:/pwnystable/images/base_raspios-bullseye-aarch64.img.xz.sha256"
-  iso_url           = "file:/pwnystable/images/base_raspios-bullseye-aarch64.img.xz"
-  output_filename   = "/pwnystable/images/pwnagotchi-${var.pwn_version}-aarch64.img"
-  image_arch        = "arm64"
-  target_image_size = 9368709120
-}
-
-source "arm-image" "orangepwn02w" {
-  iso_checksum      = "file:/vagrant/Orangepizero2w_base.img.xz.sha256"
-  iso_url           = "file:/vagrant/Orangepizero2w_base.img.xz"
-  image_type        = "armbian"
-  output_filename   = "/pwnystable/images/pwnagotchi-${var.pwn_version}-orangepi02w.img"
-  qemu_args         = ["-r", "6.1.31-sun50iw9"]
-  image_arch        = "arm64"
-  target_image_size = 9368709120
-}
-
-source "arm-image" "bananapim2zero" {
-  iso_checksum      = "file:/home/vagrant/lgit/armbian-build/output/images/Armbian_23.11.0-trunk_Bananapim2zero_bullseye_current_6.1.62_minimal.img.sha"
-  iso_url           = "/home/vagrant/lgit/armbian-build/output/images/Armbian_23.11.0-trunk_Bananapim2zero_bullseye_current_6.1.62_minimal.img"
-  image_type        = "armbian"
-  output_filename   = "/pwnystable/images/pwnagotchi-${var.pwn_version}-${source.name}.img"
-  qemu_args         = ["-r", "6.1.62-current-sunxi"]
-  image_arch        = "arm"
-  target_image_size = 9368709120
+source "arm-image" "base_image" {
+  output_filename   = "${var.image_root}/${source.name}-${var.pwn_version}.img"
+  target_image_size = "${var.target_image_size}"
 }
 
 build {
-  sources = [
-    "source.arm-image.base-image",
-    "source.arm-image.base64-image",
-    "source.arm-image.pwnagotchi",
-    "source.arm-image.pwnagotchi64",
-    "source.arm-image.orangepwn02w",
-    "source.arm-image.bananapim2zero"
-  ]
+  source "source.arm-image.base_image" {
+    name = "base-pwnagotchi"
+    iso_checksum      = "file:https://downloads.raspberrypi.org/raspios_lite_armhf/images/raspios_lite_armhf-2023-05-03/2023-05-03-raspios-bullseye-armhf-lite.img.xz.sha256"
+    iso_url           = "https://downloads.raspberrypi.org/raspios_lite_armhf/images/raspios_lite_armhf-2023-05-03/2023-05-03-raspios-bullseye-armhf-lite.img.xz"
+    qemu_args         = ["-cpu", "arm1176"]
+    image_arch        = "arm"
+  }
+  
+  source "source.arm-image.base_image" {
+    name = "base-pwnagotchi64"
+    iso_checksum      = "file:https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2023-05-03/2023-05-03-raspios-bullseye-arm64-lite.img.xz.sha256"
+    iso_url           = "https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2023-05-03/2023-05-03-raspios-bullseye-arm64-lite.img.xz"
+    image_arch = "arm64"
+  }
+
+  source "source.arm-image.pwnagotchi" {
+    name = "pwnagotchi"
+    iso_url   = "file:${var.image_root}/base-${source.name}-${var.pwn_version}.img.xz"
+    iso_checksum   = "file:${var.image_root}/base-${source.name}-${var.pwn_version}.img.xz.sha256"
+    image_type     = "raspberrypi"
+    qemu_args         = ["-cpu", "arm1176"]
+    image_arch        = "arm"
+  }
+
+  source "source.arm-image.pwnagotchi" {
+    name = "pwnagotchi64"
+    iso_url   = "file:${var.image_root}/base-${source.name}-${var.pwn_version}.img.xz"
+    iso_checksum   = "file:${var.image_root}/base-${source.name}-${var.pwn_version}.img.xz.sha256"
+    image_type     = "raspberrypi"
+    image_arch = "arm64"
+  }
+
+  source "source.arm-image.pwnagotchi" {
+    name = "orangepwn02w"
+    iso_checksum      = "file:${var.image_root}/Orangepizero2w_base.img.xz.sha256"
+    iso_url           = "file:${var.image_root}/Orangepizero2w_base.img.xz"
+    image_type        = "armbian"
+    image_arch        = "arm64"
+    qemu_args         = ["-r", "6.1.31-sun50iw9"]
+  }
+
+  source "source.arm-image.pwnagotchi" {
+    name = "bananapwn2zero"
+    iso_checksum      = "file:${var.image_root}/Armbian_23.11.0-trunk_Bananapim2zero_bullseye_current_6.1.62_minimal.img.sha"
+    iso_url           = "file:${var.image_root}/Armbian_23.11.0-trunk_Bananapim2zero_bullseye_current_6.1.62_minimal.img"
+    image_type        = "armbian"
+    image_arch        = "arm"
+    qemu_args         = ["-r", "6.1.63-current-sunxi"]
+  }
+
+  source "source.arm-image.pwnagotchi" {
+    name = "bananapwnm4zero"
+    iso_checksum      = "file:${var.image_root}/BananaPiM4Zero/Bpi-m4zero_1.0.0_debian_bullseye_minimal_linux6.1.31.img.sha"
+    iso_url           = "file:${var.image_root}/BananaPiM4Zero/Bpi-m4zero_1.0.0_debian_bullseye_minimal_linux6.1.31.img"
+    image_type        = "armbian"
+    image_arch        = "arm64"
+    qemu_args         = ["-r", "6.1.31-sun50iw9"]
+  }
+
+  
+  provisioner "shell-local" {
+    inline = [
+      "curl -s -d 'Build ${source.name} starting' ntfy.sh/pwny_builder",
+      "echo ${build.name}",
+      "printenv"
+    ]
+  }
+
+  provisioner "shell-local" {
+    inline = [
+      "mkdir -p /tmp/staging_${source.name}",
+      "ls -ld /tmp/sta*",
+      "if [ -f ../../staged_${source.name}.tgz ]; then",
+      "  tar -C /tmp/staging_${source.name} -xvzf ../../staged_${source.name}.tgz",
+      "fi"
+    ]
+  }
 
   provisioner "file" {
-    except = ["arm-image.bananapim2zero"]
     destination = "/root/staging/"
-    source      = "../../staging/"
+    source      = "/tmp/staging_${source.name}/"
+    generated   = true
   }
 
   provisioner "file" {
@@ -161,14 +205,20 @@ build {
       "echo '>>>-----> APT UPDATE <-----<<<'",
       "apt-get -y --allow-releaseinfo-change update",
       "echo '==>-----> APT UPGRADE <-----<=='",
-      "apt-get -y upgrade",
+      "#apt-get -y upgrade",
       "echo '###======]> INSTALLING ANSIBLE <[=====###'",
-      "apt install -y ansible"
+      "apt-get install -y ansible"
+    ]
+  }
+
+  provisioner "shell-local" {
+    inline = [
+      "curl -s -d 'Build ${source.name} starting ansible' ntfy.sh/pwny_builder"
     ]
   }
 
   provisioner "ansible-local" {
-    command         = "ANSIBLE_FORCE_COLOR=1 PYTHONUNBUFFERED=1 PWN_VERSION=${var.pwn_version} PWN_HOSTNAME=${var.pwn_hostname} ansible-playbook"
+    command         = "ANSIBLE_FORCE_COLOR=1 PYTHONUNBUFFERED=1 PWN_BUILD=${source.name} PWN_VERSION=${var.pwn_version} PWN_HOSTNAME=${var.pwn_hostname} ansible-playbook"
     extra_arguments = ["--extra-vars \"ansible_python_interpreter=/usr/bin/python3\"", "-vv" ]
     playbook_dir    = "../builder/"
     playbook_file   = "../builder/pwnagotchi.yml"
@@ -203,9 +253,15 @@ build {
 	  "-v",
 	  "--skip-tags", "only32,no_orangepi"
 	] },
+      "bananapwnm4zero" = {
+	extra_arguments = [
+	  "--extra-vars \"ansible_python_interpreter=/usr/bin/python3 kernel.full=6.1.31-sun50iw9\"",
+	  "-vv",
+	  "--skip-tags", "only32,no_bananapi,no_bananapim4zero"
+	] },
       "bananapim2zero" = {
 	extra_arguments = [
-	  "--extra-vars \"ansible_python_interpreter=/usr/bin/python3 kernel.full=6.1.62-current-sunxi\"",
+	  "--extra-vars", "\"ansible_python_interpreter=/usr/bin/python3 kernel.full=6.1.62-current-sunxi\"",
 	  "-vv",
 	  "--skip-tags", "only64,no_bananapi"
 	] }
@@ -236,16 +292,55 @@ build {
     ]
   }
 
-  provisioner "shell" {
+  provisioner "shell-local" {
     inline = [
-      "echo ADD FEATURE compress and sha256sum the image"
+      "echo ADD FEATURE compress and sha256sum the image",
+      "#cd $(dirname $ { source.output_filename})",
+      "#fname=$(basename $ { build.output_filename})",
+      "#xz $fname",
+      "#sha256sum $fname > $fname.sha256"
     ]
   }
 
-  provisioner "shell" {
+  provisioner "shell-local" {
     inline = [
       "echo '[|}=- Job is complete. Take a deep breath. -={|]'",
       "curl -s -d 'Build ${source.name} completed' ntfy.sh/pwny_builder"
     ]
+  }
+
+  error-cleanup-provisioner "shell-local" {
+    inline = [
+      "echo '[|}=- Build failed. Take a deep breath. -={|]'",
+      "curl -s -d 'Build ${source.name} failed' ntfy.sh/pwny_builder"
+    ]
+  }
+
+  post-processors {
+    post-processor "manifest" {
+      output = "${var.image_root}/manifest.json"
+      strip_path = true
+    }
+    
+    post-processor "shell-local" {
+      inline = [
+	"cd /pwnystable/images",
+	"echo \"Looking for $PACKER_RUN_UUID\"",
+	"jq \".builds[].files[].name\" manifest.json | xargs ls -l",
+	"jq '.builds[] | select(.packer_run_uuid==\"$PACKER_RUN_UUID\") | .files[].name' manifest.json | xargs -P 4 -n 1 echo xz --keep"
+
+      ]
+    }
+
+    post-processor "artifice" {
+      keep_input_artifact = "true"
+      files = [ "${source.name}-${var.pwn_version}.img.xz" ]
+    }
+
+    post-processor "checksum" {
+      checksum_types = ["sha256"]
+      output="${var.image_root}/pwnagotchi-image-checksums.{{.ChecksumType}}"
+      
+    }
   }
 }

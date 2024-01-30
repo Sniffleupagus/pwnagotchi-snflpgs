@@ -39,9 +39,16 @@ class Client(object):
 
     async def start_websocket(self, consumer):
         s = "%s/events" % self.websocket
+        restart_monitor = False
         while True:
             try:
                 async with websockets.connect(s, ping_interval=60, ping_timeout=90) as ws:
+                    if restart_monitor:
+                        logging.info("resetting bettercap is so fetch")
+                        self._reset_wifi_settings()
+                        if self.mode != 'manual':
+                            self.run('wifi.recon on')
+                        restart_monitor = False
                     async for msg in ws:
                         try:
                             await consumer(msg)
@@ -51,6 +58,7 @@ class Client(object):
                 logging.debug("Lost websocket connection. Reconnecting...")
             except websockets.exceptions.WebSocketException as wex:
                 logging.debug("Websocket exception (%s)", wex)
+            restart_monitor = True
 
     def run(self, command, verbose_errors=True):
         r = requests.post("%s/session" % self.url, auth=self.auth, json={'cmd': command})

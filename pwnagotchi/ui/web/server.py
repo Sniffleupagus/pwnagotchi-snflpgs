@@ -2,6 +2,7 @@ import _thread
 import secrets
 import logging
 import os
+import prctl
 
 # https://stackoverflow.com/questions/14888799/disable-console-messages-in-flask-server
 logging.getLogger('werkzeug').setLevel(logging.ERROR)
@@ -28,6 +29,8 @@ class Server:
             _thread.start_new_thread(self._http_serve, ())
 
     def _http_serve(self):
+        prctl.set_name("pwny http")
+
         if self._address is not None:
             web_path = os.path.dirname(os.path.realpath(__file__))
 

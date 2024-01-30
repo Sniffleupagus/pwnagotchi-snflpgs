@@ -5,6 +5,7 @@ import random
 import os
 import json
 import logging
+import prctl
 
 import pwnagotchi.plugins as plugins
 import pwnagotchi.ai as ai
@@ -136,6 +137,8 @@ class AsyncTrainer(object):
         logging.info("[ai] setting new policy:")
         for name, value in new_params.items():
             if name in self._config['personality']:
+                if name == 'channels':
+                    value = list(filter(lambda x: x in self._allowed_channels, value))
                 curr_value = self._config['personality'][name]
                 if curr_value != value:
                     logging.info("[ai] ! %s: %s -> %s" % (name, curr_value, value))
@@ -162,10 +165,12 @@ class AsyncTrainer(object):
         plugins.on('ai_worst_reward', self, r)
 
     def _ai_worker(self):
+        prctl.set_name("ai worker")
         self._model = ai.load(self._config, self, self._epoch)
 
         if self._model:
             self.on_ai_ready()
+            prctl.set_name("ai: ready")
 
             epochs_per_episode = self._config['ai']['epochs_per_episode']
 
@@ -175,6 +180,7 @@ class AsyncTrainer(object):
                 # enter in training mode?
                 if random.random() > self._config['ai']['laziness']:
                     logging.info("[ai] learning for %d epochs ..." % epochs_per_episode)
+                    prctl.set_name("ai: training")
                     try:
                         self.set_training(True, epochs_per_episode)
                         # back up brain file before starting new training set
@@ -188,6 +194,7 @@ class AsyncTrainer(object):
                         logging.exception("[ai] error while training (%s)", e)
                     finally:
                         self.set_training(False)
+                        prctl.set_name("ai: pwning")
                         obs = self._model.env.reset()
                 # init the first time
                 elif obs is None:
