@@ -2,6 +2,8 @@ import _thread
 import logging
 import random
 import time
+import prctl
+
 from threading import Lock
 
 from PIL import ImageDraw
@@ -128,6 +130,11 @@ class View(object):
             self._render_cbs.append(cb)
 
     def _refresh_handler(self):
+        try:
+            prctl.set_name("ui refresh")
+        except Exeception as e:
+            logging.exception(repr(e))
+
         delay = 1.0 / self._config['ui']['fps']
         while True:
             try:

@@ -4,6 +4,8 @@ import base64
 import _thread
 import secrets
 import json
+import prctl
+
 from functools import wraps
 
 # https://stackoverflow.com/questions/14888799/disable-console-messages-in-flask-server

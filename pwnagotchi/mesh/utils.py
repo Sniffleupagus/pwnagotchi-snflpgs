@@ -1,6 +1,7 @@
 import _thread
 import logging
 import time
+import prctl
 
 import pwnagotchi
 import pwnagotchi.utils as utils
@@ -32,9 +33,9 @@ class AsyncAdvertiser(object):
     def fingerprint(self):
         return self._keypair.fingerprint
 
-    def _update_advertisement(self, s):
+    def _update_advertisement(self):
         self._advertisement['pwnd_run'] = len(self._handshakes)
-        self._advertisement['pwnd_tot'] = utils.total_unique_handshakes(self._config['bettercap']['handshakes'])
+        self._advertisement['pwnd_tot'] = self._total_u_shakes
         self._advertisement['uptime'] = pwnagotchi.uptime()
         self._advertisement['epoch'] = self._epoch.epoch
         grid.set_advertisement_data(self._advertisement)
@@ -69,7 +70,9 @@ class AsyncAdvertiser(object):
     def _adv_poller(self):
         # give the system a few seconds to start the first time so that any expressions
         # due to nearby units will be rendered properly
+        prctl.set_name("grid poller")
         time.sleep(20)
+        lastpeers = 0
         while True:
             try:
                 logging.debug("polling pwngrid-peer for peers ...")
@@ -102,6 +105,10 @@ class AsyncAdvertiser(object):
                     # update the rest
                     else:
                         self._peers[ident].update(peer)
+
+                if lastpeers != len(self._peers):
+                    lastpeers = len(self._peers)
+                    prctl.set_name("peers: %d" % lastpeers)
 
             except Exception as e:
                 logging.warning("error while polling pwngrid-peer: %s" % e)
