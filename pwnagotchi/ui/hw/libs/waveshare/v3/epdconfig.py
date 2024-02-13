@@ -47,7 +47,7 @@ class RaspberryPi:
         self.GPIO = RPi.GPIO
 
         # SPI device, bus = 0, device = 0
-        self.SPI = spidev.SpiDev(0, 0)
+        self.SPI = spidev.SpiDev(1, 1)
 
     def digital_write(self, pin, value):
         self.GPIO.output(pin, value)
@@ -145,7 +145,8 @@ class JetsonNano:
 if os.path.exists('/sys/bus/platform/drivers/gpiomem-bcm2835'):
     implementation = RaspberryPi()
 else:
-    implementation = JetsonNano()
+    implementation = RaspberryPi()
+    #implementation = JetsonNano()
 
 for func in [x for x in dir(implementation) if not x.startswith('_')]:
     setattr(sys.modules[__name__], func, getattr(implementation, func))

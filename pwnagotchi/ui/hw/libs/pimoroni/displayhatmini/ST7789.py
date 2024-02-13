@@ -25,6 +25,11 @@ import numpy as np
 import spidev
 import RPi.GPIO as GPIO
 
+try:
+    from rpi_hardware_pwm import HardwarePWM
+except:
+    from RPi.GPIO import PWM as HardwarePWM
+
 # Hardware PWM for the backlight LED requires and external library installed
 # with pip3, and a dtoverlay added to /boot/config.txt to enable hardware PWM
 # run the following two commands in the shell:
@@ -32,7 +37,6 @@ import RPi.GPIO as GPIO
 # sudo pip3 install rpi-hardware-pwm
 # echo "dtoverlay=pwm-2chan,pin=12,func=4,pin2=13,func2=4" | sudo tee -a /boot/config.txt
 #
-from rpi_hardware_pwm import HardwarePWM
 
 __version__ = '0.0.4'
 
@@ -99,8 +103,8 @@ class ST7789(object):
     """Representation of an ST7789 TFT LCD."""
 
     def __init__(self, port, cs, dc, backlight, rst=None, width=320,
-                 height=240, rotation=0, invert=True, spi_speed_hz=60 * 1000 * 1000,
-                 backlight_pwm=True,
+                 height=240, rotation=0, invert=True, spi_speed_hz=3 * 1000 * 1000,
+                 backlight_pwm=False,
                  offset_left=0,
                  offset_top=0):
         """Create an instance of the display using SPI communication.
@@ -190,9 +194,11 @@ class ST7789(object):
         """Set the backlight on/off. PWM 0.0-1.0, otherwise 1 or 0."""
         if self._backlight is not None:
             if self._backlight_pwm:
-                self._backlight_pwm.change_duty_cycle(value * 100)
+                self._backlight_pwm.change_duty_cycle(int(value * 100))
                 self._brightness = value
             else:
+                #if value < 1:
+                #    value = GPIO.HIGH if value > 0.3 else GPIO.LOW
                 GPIO.output(self._backlight, value)
                 self._brightness = value
 
