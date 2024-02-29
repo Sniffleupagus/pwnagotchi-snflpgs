@@ -16,7 +16,6 @@ systemctl stop bettercap pwngrid-peer pwnagotchi
 /usr/bin/fix_pwny_iface.sh
 
 systemctl restart bettercap pwngrid-peer pwnagotchi
-exit
 
 mv /etc/rc.local /etc/rc.local.FIRSTRUN
 mv /etc/rc.local.ORIG /etc/rc.local || cat >/etc/rc.local <<EOF
