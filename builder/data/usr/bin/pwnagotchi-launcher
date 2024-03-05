@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+
+source /home/pwnagotchi/.venv/bin/activate
+
 source /usr/bin/pwnlib
 
 # we need to decrypt something
