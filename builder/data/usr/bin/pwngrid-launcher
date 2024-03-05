@@ -1,7 +1,13 @@
 #!/usr/bin/bash
 
 source /usr/bin/pwnlib
-LOG="-log /home/pi/log/pwngrid-peer.log"
+LOG="/home/pwnagotchi/logs/pwngrid-peer.log"
+
+if [ ! -d $(dirname $LOG) ]; then
+    mkdir -p $(dirname $LOG)
+    chmod a+rX $(dirname $LOG)
+fi
+
 
 # check to see if pwnagotchi is advertising and disable if not
 # some wifi drivers to not support advertising. Disable in /etc/pwnagotchi/config.toml
@@ -10,4 +16,4 @@ if egrep "personality.advertise.*=.*false" /etc/pwnagotchi/config.toml ; then
   ADVERTISE="-advertise=false"
 fi
 
-/usr/local/bin/pwngrid -keys /etc/pwnagotchi -address 127.0.0.1:8666 -client-token /root/.api-enrollment.json -wait ${LOG} -iface ${PWNY_MON_IFACE} ${ADVERTISE}
+/usr/local/bin/pwngrid -keys /etc/pwnagotchi -address 127.0.0.1:8666 -client-token /root/.api-enrollment.json -wait -log ${LOG} -iface ${PWNY_MON_IFACE} ${ADVERTISE}
