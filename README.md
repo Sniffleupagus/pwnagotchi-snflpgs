@@ -35,6 +35,21 @@ The build process creates a base image for raspberry pis, to update system packa
 - bases - build both raspberyr pi base images
 - 4images - build both raspberry pi, orangepi02w and bananapim2zero
 
+## Build for Raspberry Pi Zero W
+Raspberry Pi Zero W is one of the better SBCs to run pwnagotchi. Its onboard Wifi is well supported by the nexmon driver. Packet injection works, and it does not "go blind" as often as the Pizero 2W seems to, as long as you throttle deauths. Pizero W has a 32-bit CPU. Torch wheels are not supplied by python repositories. I have build torch and torchvision wheels for armv6l and they are downloaded as part of this build. Building torch for the arm processor is done in a Qemu environment and takes hours on a decent iMac, so it is separate from this build (https://github.com/Sniffleupagus/Torch4Pizero). Compilations in this build under armv6l emulation take kind of a while. The whole pwnagotchi build takes almost 2 hours in VM on the iMac.
+
+Clone this Repository. Then run "make base32". It will take a while.  Then "make image". Also takes a while.
+
+## Build for 64-bit Raspberry Pi
+These are easier.  Torch wheels exist, so they get downloaded from standard places. Build a base image, then final:
+    make base64
+    make image64
+
+## Other SBCs
+Orangepi and bananapim4zero builds use the images supplied by Orangepi or Bananapi on the SBC wiki pages. I will try to figure out which ones I used. Download the image, place it in build/images/ and rename as in the pwnagotchi.json.pkr.hcl file "source" section.  Then "make orangepwn02w" or "make bananapwnm4zero"
+
+Bananapim2zero does have a chip with a nexmon driver. It does not currently have a torch wheel available, so no AI on this platform yet. Also untested build result. "make bananapwnm2zero"
+
 
 
 ## License
