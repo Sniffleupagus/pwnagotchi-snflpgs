@@ -49,14 +49,17 @@
   - name: "go mod tidy for {{item.name}}"
     shell: "go mod tidy"
     register: result
-    retries: 10
-    delay: 10
     args:
       executable: /bin/bash
       chdir: '/usr/local/src/{{ item.name }}'
+    retries: 3
+    delay: 10
     until: result is not failed
     ignore_errors: true
-
+#    environment:
+#      - GOPROXY: "http://127.0.0.1:8080"
+#      - GOSUMDB: "off"
+      
   - name: "build and install {{item.name}}"
     make:
       chdir: '/usr/local/src/{{ item.name }}'
@@ -67,6 +70,9 @@
         - all
         - install
     register: result
+    environment:
+#      - GOPROXY: "http://127.0.0.1:8080"
+#      - GOSUMDB: "off"
 
   - name: "make bin staging dir {{staging}}/bin"
     file:

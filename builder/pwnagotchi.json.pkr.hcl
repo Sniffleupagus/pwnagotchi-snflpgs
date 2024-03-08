@@ -20,13 +20,13 @@ variable "pwn_version" {
 variable "stage_root" {
   type = string
   description = "Path to staging directory"
-  default = "/pwnystable/stage"
+  default = "../build/stage"
 }
 
 variable "image_root" {
   type = string
   description = "Path to disk image directory"
-  default = "/pwnystable/images"
+  default = "../build/images"
 }
 
 variable "target_image_size" {
@@ -63,8 +63,8 @@ build {
 
   source "source.arm-image.pwnagotchi" {
     name = "pwnagotchi"
-    iso_url   = "file:${var.image_root}/base-${source.name}-${var.pwn_version}.img.xz"
-    iso_checksum   = "file:${var.image_root}/base-${source.name}-${var.pwn_version}.img.xz.sha256"
+    iso_url   = "file:${abspath(var.image_root)}/base-${source.name}-${var.pwn_version}.img.xz"
+    iso_checksum   = "none"
     image_type     = "raspberrypi"
     qemu_args         = ["-cpu", "arm1176"]
     image_arch        = "arm"
@@ -72,25 +72,25 @@ build {
 
   source "source.arm-image.pwnagotchi" {
     name = "pwnagotchi64"
-    iso_url   = "file:${var.image_root}/base-${source.name}-${var.pwn_version}.img.xz"
-    iso_checksum   = "file:${var.image_root}/base-${source.name}-${var.pwn_version}.img.xz.sha256"
+    iso_url   = "file:${abspath(var.image_root)}/base-${source.name}-${var.pwn_version}.img.xz"
+    iso_checksum   = "none"
     image_type     = "raspberrypi"
     image_arch = "arm64"
   }
 
   source "source.arm-image.pwnagotchi" {
     name = "orangepwn02w"
-    iso_checksum      = "file:${var.image_root}/Orangepizero2w_base.img.xz.sha256"
-    iso_url           = "file:${var.image_root}/Orangepizero2w_base.img.xz"
+    iso_checksum      = "none"
+    iso_url           = "file:${abspath(var.image_root)}/Orangepizero2w_base.img.xz"
     image_type        = "armbian"
     image_arch        = "arm64"
     qemu_args         = ["-r", "6.1.31-sun50iw9"]
   }
 
   source "source.arm-image.pwnagotchi" {
-    name = "bananapwn2zero"
-    iso_checksum      = "file:${var.image_root}/Armbian_23.11.0-trunk_Bananapim2zero_bullseye_current_6.1.62_minimal.img.sha"
-    iso_url           = "file:${var.image_root}/Armbian_23.11.0-trunk_Bananapim2zero_bullseye_current_6.1.62_minimal.img"
+    name = "bananapwnm2zero"
+    iso_checksum      = "none"
+    iso_url           = "file:${abspath(var.image_root)}/Armbian_23.11.0-trunk_Bananapim2zero_bullseye_current_6.1.62_minimal.img"
     image_type        = "armbian"
     image_arch        = "arm"
     qemu_args         = ["-r", "6.1.63-current-sunxi"]
@@ -98,8 +98,8 @@ build {
 
   source "source.arm-image.pwnagotchi" {
     name = "bananapwnm4zero"
-    iso_checksum      = "file:${var.image_root}/BananaPiM4Zero/Bpi-m4zero_1.0.0_debian_bullseye_minimal_linux6.1.31.img.sha"
-    iso_url           = "file:${var.image_root}/BananaPiM4Zero/Bpi-m4zero_1.0.0_debian_bullseye_minimal_linux6.1.31.img"
+    iso_checksum      = "none"
+    iso_url           = "file:${abspath(var.image_root)}/BananaPiM4Zero/Bpi-m4zero_1.0.0_debian_bullseye_minimal_linux6.1.31.img"
     image_type        = "armbian"
     image_arch        = "arm64"
     qemu_args         = ["-r", "6.1.31-sun50iw9"]
@@ -110,16 +110,37 @@ build {
     inline = [
       "curl -s -d 'Build ${source.name} starting' ntfy.sh/pwny_builder",
       "echo ${build.name}",
+      "pwd",
       "printenv"
     ]
   }
 
   provisioner "shell-local" {
     inline = [
+      "echo 'Creating stage directory for ${source.name}'",
       "mkdir -p /tmp/staging_${source.name}",
       "ls -ld /tmp/sta*",
-      "if [ -f ../../staged_${source.name}.tgz ]; then",
-      "  tar -C /tmp/staging_${source.name} -xvzf ../../staged_${source.name}.tgz",
+      "if [ -f ${abspath(var.stage_root)}/staged_${source.name}.tgz ]; then",
+      "  echo 'Unpacking staged files:'",
+      "  tar -C /tmp/staging_${source.name} -xvzf ${var.stage_root}/staged_${source.name}.tgz",
+      "else",
+      "  echo looking for ${source.name} in  ${abspath(var.stage_root)}",
+      "  ls -l ${abspath(var.stage_root)}",
+      "fi",
+      "if [ ! -d '${var.stage_root}/incoming}' ]; then",
+      "  echo '-> Creating ${var.stage_root}/incoming directory for new artifacts'",
+      "  mkdir -p ${var.stage_root}/incoming",
+      "fi"
+    ]
+  }
+
+  provisioner "shell-local" {
+    only = ["arm-image.bananapwnm2zero", "arm-image.pwnagotchi", "arm-image.base-pwnagotchi"]
+    inline = [
+      "if [ -f '${var.stage_root}/go_pkgs.tgz' ]; then",
+      "  echo 'Copying go packages'",
+      "  cp ${var.stage_root}/go_pkgs.tgz /tmp/staging_${source.name}/",
+      "  ls -l /tmp/staging_${source.name}",
       "fi"
     ]
   }
@@ -130,51 +151,29 @@ build {
     generated   = true
   }
 
-  provisioner "file" {
-    only = ["arm-image.bananapim2zero", "arm-image.pwnagotchi"]
-    destination = "/root/"
-    source      = "../../spool/go_pkgs.tgz"
-  }
-
   provisioner "shell" {
-    only = ["arm-image.bananapim2zero", "arm-image.pwnagotchi"]
+    only = ["arm-image.bananapwnm2zero", "arm-image.pwnagotchi"]
     inline = [
-      "echo Installing go packages to help go mod tidy under arm emulation",
-      "tar -C /root -xzf /root/go_pkgs.tgz",
-      "rm /root/go_pkgs.tgz"
+      "if [ -f /root/staging/go_pkgs.tgz ]; then",
+      "  echo Installing go packages to help go mod tidy under arm emulation",
+      "  tar -C /root -xvzf /root/staging/go_pkgs.tgz | tail",
+      "  rm /root/staging/go_pkgs.tgz",
+      "fi"
     ]
   }
 
   provisioner "file" {
     destination = "/usr/bin/"
     sources     = [
-      "../builder/data/usr/bin/pwnlib",
-      "../builder/data/usr/bin/bettercap-launcher",
-      "../builder/data/usr/bin/pwnagotchi-launcher", "../builder/data/usr/bin/pwngrid-launcher",
-      "../builder/data/usr/bin/monstop",
-      "../builder/data/usr/bin/monstart",
-      "../builder/data/usr/bin/hdmion",
-      "../builder/data/usr/bin/hdmioff"
+      "../builder/data/usr/bin/"
     ]
   }
 
   provisioner "file" {
-    except = ["arm-image.bananapim2zero"]
-    destination = "/etc/network/interfaces.d/"
+    except = ["arm-image.bananapwnm2zero"]
+    destination = "/etc/"
     sources     = [
-      "../builder/data/etc/network/interfaces.d/lo-cfg",
-      "../builder/data/etc/network/interfaces.d/wlan0-cfg",
-      "../builder/data/etc/network/interfaces.d/usb0-cfg",
-      "../builder/data/etc/network/interfaces.d/eth0-cfg"
-    ]
-  }
-
-  provisioner "file" {
-    destination = "/etc/systemd/system/"
-    sources     = [
-      "../builder/data/etc/systemd/system/pwngrid-peer.service",
-      "../builder/data/etc/systemd/system/pwnagotchi.service",
-      "../builder/data/etc/systemd/system/bettercap.service"
+      "../builder/data/etc/"
     ]
   }
 
@@ -182,17 +181,12 @@ build {
     inline = ["chmod +x /usr/bin/*"]
   }
 
-  provisioner "file" {
-    destination = "/etc/update-motd.d/01-motd"
-    source      = "../builder/data/etc/update-motd.d/01-motd"
-  }
-
   provisioner "shell" {
     inline = ["chmod +x /etc/update-motd.d/*"]
   }
 
   provisioner "shell" {
-    only = ["arm-image.base-image", "arm-image.base64-image", "arm-image.pwnagotchi", "arm-image.pwnagotchi64"]
+    only = ["arm-image.base-pwnagotchi", "arm-image.base-pwnagotchi64", "arm-image.pwnagotchi", "arm-image.pwnagotchi64"]
     inline = [
       "echo Install kernel headers",
       "apt-get install -y raspberrypi-kernel-headers",
@@ -207,7 +201,7 @@ build {
       "echo '==>-----> APT UPGRADE <-----<=='",
       "#apt-get -y upgrade",
       "echo '###======]> INSTALLING ANSIBLE <[=====###'",
-      "apt-get install -y ansible"
+      "apt-get install -y ansible binfmt-support python3-venv"
     ]
   }
 
@@ -219,21 +213,21 @@ build {
 
   provisioner "ansible-local" {
     command         = "ANSIBLE_FORCE_COLOR=1 PYTHONUNBUFFERED=1 PWN_BUILD=${source.name} PWN_VERSION=${var.pwn_version} PWN_HOSTNAME=${var.pwn_hostname} ansible-playbook"
-    extra_arguments = ["--extra-vars \"ansible_python_interpreter=/usr/bin/python3\"", "-vv" ]
+    extra_arguments = ["--extra-vars \"ansible_python_interpreter=/usr/bin/python3\"", "-v" ]
     playbook_dir    = "../builder/"
     playbook_file   = "../builder/pwnagotchi.yml"
     override = {
-      "base-image" = {
+      "base-pwnagotchi" = {
 	extra_arguments = [
 	  "--extra-vars \"ansible_python_interpreter=/usr/bin/python3\"",
 	  "-v",
-	  "--skip-tags", "only64,pwnagotchi,no_raspi"
+	  "--skip-tags", "only64,pwnagotchi,no_raspi,no_base"
 	] },
-      "base64-image" = {
+      "base-pwnagotchi64" = {
 	extra_arguments = [
 	  "--extra-vars \"ansible_python_interpreter=/usr/bin/python3\"",
 	  "-v",
-	  "--skip-tags", "only32,pwnagotchi,no_raspi"
+	  "--skip-tags", "only32,pwnagotchi,no_raspi,no_base"
 	] },
       "pwnagotchi" = {
 	extra_arguments = [
@@ -256,14 +250,14 @@ build {
       "bananapwnm4zero" = {
 	extra_arguments = [
 	  "--extra-vars \"ansible_python_interpreter=/usr/bin/python3 kernel.full=6.1.31-sun50iw9\"",
-	  "-vv",
+	  "-v",
 	  "--skip-tags", "only32,no_bananapi,no_bananapim4zero"
 	] },
-      "bananapim2zero" = {
+      "bananapwnm2zero" = {
 	extra_arguments = [
 	  "--extra-vars", "\"ansible_python_interpreter=/usr/bin/python3 kernel.full=6.1.62-current-sunxi\"",
-	  "-vv",
-	  "--skip-tags", "only64,no_bananapi"
+	  "-v",
+	  "--skip-tags", "only64,no_bananapi,no_bananapim2zero"
 	] }
     } 
   }
@@ -277,12 +271,9 @@ build {
   }
 
   provisioner "file" {
-    destination = "../../staged_${source.name}.tgz"
+    destination = "${var.stage_root}/incoming/staged_${source.name}.tgz"
     direction   = "download"
     source      = "/root/staging.tgz"
-    override = {
-      "orangepwn02w" = { destination = "../../staged_oragenpwn02w.tgz" }
-    }
   }
 
   provisioner "shell" {
