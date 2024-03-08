@@ -1,0 +1,60 @@
+---
+# variables for pwnagotchi on 32-bit Raspberry Pi OS, built for PiZeroW CPU
+boards:
+  - {
+    kernel: "6.1.21+",
+    name: "PiZeroW",
+    firmware: "brcmfmac43430-sdio.bin",
+    patch: "bcm43430a1/7_45_41_46",
+    cpu: arm1176,
+    arch: "armv6l"
+    }
+  - {
+  kernel: "6.1.21-v7+",
+  name: "PiZero2W",
+  firmware: "brcmfmac43436-sdio.bin",
+  patch: "bcm43436b0/9_88_4_65",
+  cpu: any,
+  arch: "armv7l"
+  }
+  - {
+  kernel: "6.1.21-v7l+",
+  name: "Pi4b_32",
+  firmware: "brcmfmac43455-sdio.bin",
+  patch: "bcm43455c0/7_45_206",
+  cpu: any,
+  arch: "armv7l"
+  }
+  - {
+  kernel: "6.1.21-v8+",
+  name: "PiZero2W/1",
+  firmware: "brcmfmac43430-sdio.bin",
+  patch: "bcm43430a1/7_45_41_46",
+  cpu: any,
+  arch: "aarch64"
+  }
+
+extras:
+  apt:
+    install:
+      - libavcodec58
+      - libavformat58
+      - libswscale5
+      - libtiff5
+      - libraspberrypi-bin
+      - libraspberrypi-dev
+      - libraspberrypi-doc
+      - libraspberrypi0
+  pwnagotchi:
+    - "https://github.com/Sniffleupagus/Torch4Pizero/releases/download/v1.0.0/torch-2.1.0a0+gitunknown-cp39-cp39-linux_armv6l.whl"
+    - "https://github.com/Sniffleupagus/Torch4Pizero/releases/download/v1.0.0/torchvision-0.16.0a0-cp39-cp39-linux_armv6l.whl"
+  
+torch:
+  wheel: "torch-2.1.0a0+gitunknown-cp39-cp39-linux_armv6l.whl"
+  repo: "https://github.com/pytorch/pytorch.git"
+  url: "https://github.com/Sniffleupagus/Torch4Pizero/releases/download/v1.0.0/torch-2.1.0a0+gitunknown-cp39-cp39-linux_armv6l.whl"
+torchvision:
+  wheel: "torchvision-0.16.0a0-cp39-cp39-linux_armv6l.whl"
+  repo: "https://github.com/pytorch/vision.git"
+  url: "https://github.com/Sniffleupagus/Torch4Pizero/releases/download/v1.0.0/torchvision-0.16.0a0-cp39-cp39-linux_armv6l.whl"
+    

@@ -11,11 +11,14 @@ export PWNY_WIFI_IFACE='wlan0'
 export PWNY_MON_IFACE='mon0'
 
 # look for monitor interface in config files
-for conf in /usr/local/lib/python3.9/dist-packages/pwnagotchi/defaults.toml \
+for conf in /usr/local/lib/python*/dist-packages/pwnagotchi/default.toml \
+		/etc/pwnagotchi/default.toml
 		/etc/pwnagotchi/config.toml; do
-    if grep -q main.iface $conf; then
-	mondev=$(grep main.iface $conf | cut -d \" -f2)
-	export PWNY_MON_IFACE=$mondev
+    if [ -f ${conf} ]; then
+	if grep -q main.iface $conf; then
+	    mondev=$(grep main.iface $conf | cut -d \" -f2)
+	    export PWNY_MON_IFACE=$mondev
+	fi
     fi
 done
 

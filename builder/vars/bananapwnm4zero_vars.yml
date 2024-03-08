@@ -1,5 +1,5 @@
 ---
-# variables for orangepi02w
+# variables for bananapi m4 zero
 # no boards for nexmon
 boards:
 default_hostname: "bpi-m4zero"
@@ -23,4 +23,4 @@ extras:
   pip:
     - "git+https://github.com/Sniffleupagus/OPi.GPIO@BPIm4zero#egg=OPi.GPIO"
     - spidev
-  pwnagotchi:
+
