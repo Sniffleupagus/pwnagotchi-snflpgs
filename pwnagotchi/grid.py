@@ -85,6 +85,7 @@ def update_data(last_session):
         },
         'uname': subprocess.getoutput("uname -a"),
         'brain': brain,
+        'build': 'bpwn-m4zero venv venv venv',
         'version': pwnagotchi.__version__
     }
 

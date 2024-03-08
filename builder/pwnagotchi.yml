@@ -151,11 +151,14 @@
           - python3-flask-cors
           - python3-flaskext.wtf
           - python3-fsspec
+          - python3-full
+          - python3-matplotlib
           - python3-networkx
           - python3-oauthlib
           - python3-pandas
           - python3-pil
           - python3-pip
+          - python3-prctl
           - python3-protobuf
           - python3-pycryptodome
           - python3-requests
@@ -163,6 +166,7 @@
           - python3-smbus
           - python3-sympy
           - python3-tweepy
+          - python3-venv
           - qpdf
           - rsync
           - screen
@@ -204,24 +208,24 @@
   - name: "Include vars for {{pwnagotchi.build}}"
     ansible.builtin.include_vars: "vars/{{pwnagotchi.build}}_vars.yml"
       
-  - name: Fix DTB file for GPIO displays
-    tags:
-      - no_orangepi
-      - no_raspi
-    block:
-      - name: Back up Original DTB file
-        copy:
-          src: /boot/dtb/allwinner/sun50i-h618-bananapi-m4zero.dtb
-          dest: /boot/dtb/allwinner/sun50i-h618-bananapi-m4zero.dtb.ORIG
+  # - name: Fix DTB file for GPIO displays
+  #   tags:
+  #     - no_orangepi
+  #     - no_raspi
+  #   block:
+  #     - name: Back up Original DTB file
+  #       copy:
+  #         src: /boot/dtb/allwinner/sun50i-h618-bananapi-m4zero.dtb
+  #         dest: /boot/dtb/allwinner/sun50i-h618-bananapi-m4zero.dtb.ORIG
           
-      - name: Back up Original DTB file
-        copy:
-          src: data/boot/dtb/allwinner/sun50i-h618-bananapi-m4zero-pwnagotchi.dtb
-          dest: /boot/dtb/allwinner/sun50i-h618-bananapi-m4zero.dtb
+  #     - name: Back up Original DTB file
+  #       copy:
+  #         src: data/boot/dtb/allwinner/sun50i-h618-bananapi-m4zero-pwnagotchi.dtb
+  #         dest: /boot/dtb/allwinner/sun50i-h618-bananapi-m4zero.dtb
           
-  - name: Print all available facts
-    ansible.builtin.debug:
-      var: ansible_facts
+#  - name: Print all available facts
+#    ansible.builtin.debug:
+#      var: ansible_facts
 
   - name: Create pi user, default password pwny1234
     copy:
@@ -240,7 +244,7 @@
       home: /home/pwnagotchi
       create_home: true
       skeleton: /etc/skel
-      comment: "Bpi-m4zero Pwnagotchi"
+      comment: "{{pwnagotchi.build}} pwnagotchi"
     register: pwnagotchi_user
     ignore_errors: true
 
@@ -274,23 +278,13 @@
     tags:
       - base
 
-  - name: disable sap plugin for bluetooth.service in /usr/lib
+  - name: disable sap plugin for bluetooth.service
     lineinfile:
       dest: /lib/systemd/system/bluetooth.service
-      regexp: '^ExecStart=/usr/lib/bluetooth/bluetoothd$'
-      line: 'ExecStart=/usr/lib/bluetooth/bluetoothd --noplugin=sap'
+      regexp: '^ExecStart=/usr/(lib|libexec)/bluetooth/bluetoothd$'
+      line: 'ExecStart=/usr/\1/bluetooth/bluetoothd --noplugin=sap'
       state: present
-    tags:
-      - base
-      - no_orangepi
-    ignore_errors: true
-
-  - name: disable sap plugin for bluetooth.service in /usr/libexec
-    lineinfile:
-      dest: /lib/systemd/system/bluetooth.service
-      regexp: '^ExecStart=/usr/libexec/bluetooth/bluetoothd$'
-      line: 'ExecStart=/usr/libexec/bluetooth/bluetoothd --noplugin=sap'
-      state: present
+      backrefs: yes
     tags:
       - base
       - no_orangepi
@@ -303,6 +297,7 @@
       line: "CONF_SWAPSIZE=2048"
     tags:
       - base
+      - no_raspi
       - no_orangepi
       - no_bananapi
 
@@ -310,6 +305,28 @@
   - name: update apt package cache
     apt:
       update_cache: yes
+
+  #######
+  # Pip3
+  #######
+  
+  - name: "Set up a venv for pwnagotchi"
+    shell: "python3 -m venv {{pwnagotchi_user.home}}/.venv"
+
+  - name: "Configure venv to use system python libs"
+    lineinfile:
+      path: "{{pwnagotchi_user.home}}/.venv/pyvenv.cfg"
+      state: present
+      regexp: '^include-system-site-packages.*='
+      line: 'include-system-site-packages = true'
+
+  - name: update pip3, setuptools, wheel
+    shell: "python3 -m pip install --upgrade pip setuptools wheel {{system.pip_extra_args}}"
+    args:
+      executable: /bin/bash
+      chdir: /usr/local/src
+    environment:
+      PATH: "{{pwnagotchi_user.home}}/.venv/bin:{{ lookup('env', 'PATH') }}"
 
   - name: "Install apt packages for all systems"
     apt:
@@ -322,16 +339,6 @@
       name: "{{ extras.apt.install }}"
       state: present
       
-  #######
-  # Pip3
-  #######
-  
-  - name: update pip3, setuptools, wheel
-    shell: "python3 -m pip install --upgrade pip setuptools wheel {{system.pip_extra_args}}"
-    args:
-      executable: /bin/bash
-      chdir: /usr/local/src
-
   # or build torch and torchvision
   # maybe someday
   - name: "Install support package: {{package.name}}"
@@ -355,7 +362,7 @@
 
   ###########################################
   #
-  # libpcap v1.9 - build from source
+  # libpcap - build from source because apt version 1.10 does not work with pwngrid
   #
   ###########################################
 
@@ -365,17 +372,17 @@
     stat: path=/usr/local/lib/libpcap.so.1
     register: libpcap_so
 
-  - name: Build and install libpcap v1.9
+  - name: Build and install libpcap v1.11+
     when: not libpcap_so.stat.exists
     block:
-      - name: clone libpcap v1.9 from github
+      - name: clone libpcap from github
         git:
           repo: 'https://github.com/the-tcpdump-group/libpcap.git'
           dest: /usr/local/src/libpcap
-          version: libpcap-1.9
+          #version: libpcap-1.9
 
       - name: "Configure libpcap"
-        shell: "./configure"
+        shell: "./autogen.sh && ./configure"
         args:
           executable: /bin/bash
           chdir: /usr/local/src/libpcap
@@ -398,7 +405,7 @@
       # symlink  to alternate naming (older version?) that bettercap and pwngrid compile against
       - name: "Make symlink to libpcap.so.0.8"
         file:
-          src: "/usr/local/lib/libpcap.so.1.9.1"
+          src: "/usr/local/lib/libpcap.so.1"
           dest: "/usr/local/lib/libpcap.so.0.8"
           state: link
     rescue:
@@ -455,18 +462,31 @@
     pip:
       name: "{{extras.pip}}"
       extra_args: "{{system.pip_extra_args}}"
+      virtualenv: "{{pwnagotchi_user.home}}/.venv"
     ignore_errors: true
+    environment:
+      CFLAGS: "-fcommon"
 
   # is this even necessary? Can't we just link from /home/pi/pwnagotchi to /usr/local/{bin,lib,etc}
   # then just git update in the home dir and encourage hacking?
   # make owned by pi.pi, and custom plugins.
   - name: "Build pwnagotchi wheel"
+    environment:
+      PATH: "{{pwnagotchi_user.home}}/.venv/bin:{{ lookup('env', 'PATH') }}"
     command: "python3 setup.py sdist bdist_wheel"
     args:
       chdir: /usr/local/src/pwnagotchi
     when: (pwnagotchigit.changed) or (pip_packages['pwnagotchi'] is undefined) or (pip_packages['pwnagotchi'] != pwnagotchi_version)
     tags: pwnagotchi
 
+  - name: "Find built pwnagotchi wheel"
+    ansible.builtin.find:
+      paths: "/usr/local/src/pwnagotchi/dist"
+      pattern: 'pwnagotchi-*.whl'
+      recurse: no
+    register: pwnagotchi_wheel
+    tags: pwnagotchi
+      
   - name: "Verify wheel staging directory"
     file:
       path: "{{staging}}/wheels"
@@ -488,6 +508,7 @@
       - no_bananapi
 
   - name: "Install pwnagotchi"
+    tags: no_base
     when:
       - (pwnagotchigit.changed) or (pip_packages['pwnagotchi'] is undefined) or (pip_packages['pwnagotchi'] != pwnagotchi_version)
     environment:
@@ -499,23 +520,25 @@
           - torchvision is defined
         pip:
           name:
-            - "{{pwnagotchi.wheel}}"
+            - "{{pwnagotchi_wheel.files[0].path}}"
             - "{{ torch.url }}"
             - "{{ torchvision.url }}"
           extra_args: "{{system.pip_extra_args}}"
           chdir: "/usr/local/src/pwnagotchi/dist/"
+          virtualenv: "{{pwnagotchi_user.home}}/.venv"
         register: result
         retries: 5
         delay: 20
         until: result is not failed
 
-      - name: "install pwnagotchi wheel {{staging}} {{pwnagotchi.wheel}}"
+      - name: "install pwnagotchi wheel {{staging}}<--{{pwnagotchi_wheel.files[0].path}}"
         when:
           - torch is undefined
         pip:
-          name: "{{pwnagotchi.wheel}}"
+          name: "{{pwnagotchi_wheel.files[0].path}}"
           extra_args: "{{system.pip_extra_args|default('')}}"
           chdir: "/usr/local/src/pwnagotchi/dist/"
+          virtualenv: "{{pwnagotchi_user.home}}/.venv"
         register: result
         #retries: 3
         #delay: 10
@@ -525,7 +548,7 @@
     uri:
       url: "https://ntfy.sh/pwny_builder"
       method: POST
-      body: "{{pwnagotchi.build}} pwnagotchi wheel done"
+      body: "{{pwnagotchi.build}} pwnagotchi wheel installed"
 
   # - name: "NTFY pwnywheel is ready"
   #   ntfy:
@@ -543,7 +566,7 @@
     tags:
       - orangepi
       - no_raspi
-      - no_bananapi
+      - no_bananapim2zero
     ignore_errors: true
 
   - name: make wheel staging dir
@@ -553,7 +576,7 @@
 
   - name: copy pwnagotchi wheel to staging dir
     ansible.builtin.copy:
-      src: "{{ lookup('fileglob', '/usr/local/src/pwnagotchi/dist/{{pwnagotchi.wheel}}') }}"
+      src: "{{ lookup('fileglob', '{{pwnagotchi_wheel.files[0].path}}') }}"
       dest: "{{ staging }}/wheels"
     tags: pwnagotchi
 
@@ -765,6 +788,7 @@
         # For more information see the manual pages of crontab(5) and cron(8)
         #
         # m h  dom mon dow   command
+        PATH={{pwnagotchi_user.home}}/.venv/bin:$PATH
         */5 *  *   *   *     {{pwnagotchi_user.home}}/.local/bin/bcinfo.py -qw >/dev/null 2>&1
 
   - name: install pi crontab
@@ -865,6 +889,7 @@
         tags:
           - no_raspi
           - no_orangepi
+          - no_bananapim2zero
 
       - name: configure g_ether options for repeatable RNDIS device
         copy:
