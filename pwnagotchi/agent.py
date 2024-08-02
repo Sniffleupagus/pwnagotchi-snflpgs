@@ -6,6 +6,7 @@ import logging
 import asyncio
 import _thread
 import prctl
+import random
 
 import pwnagotchi
 import pwnagotchi.utils as utils
@@ -49,6 +50,18 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         self._total_u_shakes = -1
         self.last_session = LastSession(self._config)
         self.mode = 'auto'
+
+         # default behavior: always perform attack
+        if 'assoc_prob' not in config['personality']:
+            config['personality']['assoc_prob'] = 1.0
+        if 'deauth_prob' not in config['personality']:
+            config['personality']['deauth_prob'] = 1.0
+
+        # default behavior, no delay
+        if 'throttle_a' not in config['personality']:
+            config['personality']['throttle_a'] = 0.0
+        if 'throttle_d' not in config['personality']:
+            config['personality']['throttle_d'] = 0.0
 
         if not os.path.exists(config['bettercap']['handshakes']):
             os.makedirs(config['bettercap']['handshakes'])
@@ -466,6 +479,12 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             logging.debug("recon is stale, skipping assoc(%s)", ap['mac'])
             return False
 
+        # send attack if random generated r is > associate probability
+        r = random.random()
+        if r >= self._config['personality']['assoc_prob']:
+            logging.debug("Not associating to %s this time (%s)" % (ap['hostname'], r))
+            return False
+
         if throttle == -1 and "throttle_a" in self._config['personality']:
             throttle = self._config['personality']['throttle_a']
 
@@ -493,6 +512,12 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
     def deauth(self, ap, sta, throttle=-1):
         if self.is_stale():
             logging.debug("recon is stale, skipping deauth(%s)", sta['mac'])
+            return False
+
+        # send attack if random generated r is > deauth probability
+        r = random.random()
+        if r >= self._config['personality']['deauth_prob']:
+            logging.debug("Not deauthing %s this time" % ap['hostname'])
             return False
 
         if throttle == -1 and "throttle_d" in self._config['personality']:
