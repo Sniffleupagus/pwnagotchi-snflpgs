@@ -56,10 +56,11 @@ class KeyPair(object):
 
             except Exception as e:
                 # if we're here, loading the keys broke something ...
-                logging.exception("error loading keys, maybe corrupted, deleting and regenerating ...")
+                logging.exception("error loading keys, maybe corrupted, NOT deleting and regenerating ...")
                 try:
-                    os.remove(self.priv_path)
-                    os.remove(self.pub_path)
+                    #os.remove(self.priv_path)
+                    #os.remove(self.pub_path)
+                    pass
                 except:
                     pass
 
