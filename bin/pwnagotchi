@@ -5,6 +5,7 @@ import time
 import signal
 import sys
 import toml
+import prctl
 
 import pwnagotchi
 from pwnagotchi import utils
@@ -94,6 +95,9 @@ def do_auto_mode(agent):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser = plugins_cmd.add_parsers(parser)
+
+    prctl.set_name("pwnagotchi")
+    prctl.set_proctitle("pwnagotchi")
 
     parser.add_argument('-C', '--config', action='store', dest='config', default='/etc/pwnagotchi/default.toml',
                         help='Main configuration file.')
