@@ -1,0 +1,94 @@
+name: Build Test Images
+run-name: Build BoughBoot-${{ inputs.bb_ver }}-dev
+on:
+  workflow_dispatch:
+#    inputs:
+#      bb_ver:
+#        description: version
+#        required: true
+#        default: "alpha2"
+#        type: string
+#      uboot_gh_repo:
+#        description: u-boot github repo
+#        required: true
+#        default: ArchemedIan/u-boot-rockchip
+#        type: string
+#      uboot_ref:
+#        description: u-boot ref
+#        required: true
+#        default: bb
+#        type: string
+#      rkbin_ref:
+#        description: rkbin ref
+#        required: true
+#        default: master
+#        type: string
+#      armbian_gh_repo:
+#        description: armbian build github repo
+#        required: true
+#        default: armbian/build
+#        type: string
+#      armbian_ref:
+#        description: armbian ref
+#        required: true
+#        default: v23.11
+#        type: string
+jobs:
+  build:
+    name: ${{ matrix.boards.id }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - id: "image"
+          - id: "image64"
+          - id: "orangepwn02w"
+          - id: "bananapwnm2zero"
+          - id: "bananapwnm4zero"
+          #- id: ""
+          #- id: ""
+
+    steps:
+      - name: Maximize build space
+        uses: easimon/maximize-build-space@master
+        with:
+          root-reserve-mb: 512
+          swap-size-mb: 1024
+          remove-dotnet: 'true'
+          overprovision-lvm: 'true'
+          remove-android: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
+          remove-docker-images: 'true'
+
+      - name: prep/dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install wget
+          
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: pwnagotchi-snflpgs
+
+      - name: prep/dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install wget
+              
+      - name: Build ${{ matrix.id }}
+        run: |
+          cd pwnagotchi-snflpgs
+          make bases
+          make ${{ matrix.id }}
+      
+      - name: debug file listing
+        run: |
+          ls -l $GITHUB_WORKSPACE
+      
+      - name: Upload ${{ matrix.id }} image
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pwnagatchi-${{ matrix.id }}-TestImage-${{ $GITHUB_RUN_NUMBER }}
+          path: pwnagotchi-snflpgs/**/*.xz
+
