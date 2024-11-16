@@ -10,6 +10,9 @@
 
 sleep  10
 
+# set up usb0 through NetworkManager
+nmcli dev mod usb0 IPV4.ADDRESS 10.0.0.1/24 IPV4.GATEWAY 10.0.0.1
+
 systemctl stop bettercap pwngrid-peer pwnagotchi
 
 /usr/bin/fix_pwny_ethernet.sh
