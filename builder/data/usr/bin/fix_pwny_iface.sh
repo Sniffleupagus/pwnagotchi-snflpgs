@@ -36,6 +36,18 @@ else
     exit
 fi
 
+NETWORKMGR_CONF="/etc/NetworkManager/NetworkManager.conf"
+if ! grep '\[keyfile\]' $NETWORKMGR_CONF; then
+    echo >>$NETWORKMGR_CONF
+    echo '[keyfile]' >>$NETWORKMGR_CONF
+fi
+if ! grep "face-name:$wifidev" $NETWORKMGR_CONF; then
+    sed -i "/\[keyfile\]/a\
+    unmanaged-devices=interface-name:$wifidev" $NETWORKMGR_CONF
+fi
+
+systemctl reload NetworkManager
+
 airmon-ng start $wifidev
 
 # locate the monitor mode device
