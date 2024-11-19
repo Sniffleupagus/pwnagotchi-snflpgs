@@ -10,6 +10,8 @@ PWNY_EXT_WLAN="wlan0"
 export PWNY_WIFI_IFACE='wlan0'
 export PWNY_MON_IFACE='mon0'
 
+export PWNY_BOARD=$(cat /proc/device-tree/model)
+
 # look for monitor interface in config files
 for conf in /usr/local/lib/python*/dist-packages/pwnagotchi/default.toml \
 		/etc/pwnagotchi/default.toml \
@@ -37,15 +39,24 @@ if [ -f /usr/local/lib/libpcap.so.1 ]; then
   export LD_LIBRARY_PATH=/usr/local/lib
 fi
 
+# find a working LED
+PWNY_LED=led0
+for l in led0 ACT "red:status"; do
+    if [ -e "/sys/class/leds/$l/brightness" ]; then
+	PWNY_LED=$l
+	break
+    fi
+done
+
 # well ... it blinks the led
 blink_led() {
   for i in $(seq 1 "$1"); do
-    echo 0 >/sys/class/leds/led0/brightness
+    echo 0 >/sys/class/leds/${PWNY_LED}/brightness
     sleep 0.3
-    echo 1 >/sys/class/leds/led0/brightness
+    echo 1 >/sys/class/leds/${PWNY_LED}/brightness
     sleep 0.3
   done
-  echo 0 >/sys/class/leds/led0/brightness
+  echo 0 >/sys/class/leds/${PWNY_LED}/brightness
   sleep 0.3
 }
 
@@ -75,12 +86,40 @@ reload_brcm() {
 start_monitor_interface() {
   rfkill unblock all
   ifconfig ${PWNY_WIFI_IFACE} up
-  airmon-ng start ${PWNY_WIFI_IFACE}
+
+  # various methods
+  if [[ ( "${PWNY_BOARD}" == "BananaPi BPI-M4-Zero v2" ) || ( "${PWNY_BOARD}" == "Raspberry Pi"* ) ]]; then
+      # nexmon driver
+      modprobe -r brcmfmac
+      sleep 1
+      modprobe brcmfmac
+      sleep 1
+      ifconfig ${PWNY_WIFI_IFACE} up
+      sleep 3
+      iw dev ${PWNY_WIFI_IFACE} set power_save off
+      iw dev ${PWNY_WIFI_IFACE} interface add ${PWNY_MON_IFACE} type monitor
+      sleep 2
+      rfkill unblock all
+      ifconfig ${PWNY_WIFI_IFACE} down
+      ifconfig ${PWNY_MON_IFACE} up
+      iw dev ${PWNY_MON_IFACE} set power_save off
+  else
+      # default method
+      # works for "old" BananapiM4Zero with Realtek 8821AU onboard
+      airmon-ng start ${PWNY_WIFI_IFACE}
+  fi
 }
 
 # stops ${PWNY_MON_IFACE}
 stop_monitor_interface() {
-  airmon-ng stop ${PWNY_MON_IFACE}
+    if [[ ( "${PWNY_BOARD}" == "BananaPi BPI-M4-Zero v2" ) || ( "${PWNY_BOARD}" == "Raspberry Pi"* ) ]]; then
+	ifconfig ${PWNY_MON_IFACE} down && iw dev ${PWNY_MON_IFACE} del
+	ifconfig ${PWNY_WIFI_IFACE} up
+    else
+	airmon-ng stop ${PWNY_MON_IFACE}
+    fi
+
+    ifconfig ${PWNY_WIFI_IFACE} up
 }
 
 # returns 0 if the specificed network interface is up
