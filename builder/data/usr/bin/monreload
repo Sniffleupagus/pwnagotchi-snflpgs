@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+source /usr/bin/pwnlib
+echo "Reloading nexmon driver"
+reload_brcm
+echo "Restarting monitor interface"
+start_monitor_interface
+iwconfig
