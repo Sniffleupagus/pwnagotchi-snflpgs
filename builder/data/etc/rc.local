@@ -10,18 +10,20 @@
 
 sleep  10
 
-# set up usb0 through NetworkManager
-nmcli dev mod usb0 IPV4.ADDRESS 10.0.0.1/24 IPV4.GATEWAY 10.0.0.1
+# set up usb0 through NetworkManager - still not working
+nmcli dev mod usb0 IPV4.ADDRESS 10.0.0.1/24 IPV4.GATEWAY 10.0.0.1 || true
 
 export PWNY_BOARD=$(cat /proc/device-tree/model)
-if [[ ( "${PWNY_BOARD}" == "BananaPi BPI-M4-Zero v2" ) ]]; then
-    if ! grep bananapi-m4-sdio-wifi-bt /boot/armbianEnv.txt; then
-	# bananapim4zero with broadcom WIFI
-	sed -i.ORIG 's/overlays=i2c4-pg/overlays=bananapi-m4-sdio-wifi-bt/' /boot/armbianEnv.txt
-	sync
-	echo "Rebooting to install wifi/bt overlay..."
-	sleep 10
-	reboot
+if [ "${PWNY_BOARD}" = "BananaPi BPI-M4-Zero" ]; then
+    if ! ls -d /sys/class/net/w* ; then
+	       # no wifi, so maybe it is a bananapim4zero v2
+        if ! grep bananapi-m4-sdio-wifi-bt /boot/armbianEnv.txt; then
+    	      sed -i.ORIG 's/overlays=\ *i2c4-pg/overlays=bananapi-m4-sdio-wifi-bt/' /boot/armbianEnv.txt
+	          sync
+	          echo "Rebooting to install wifi/bt overlay..."
+	          sleep 10
+	          reboot
+        fi
     fi
 fi
 
