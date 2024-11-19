@@ -4,11 +4,11 @@
 # Then put the monitor mode inteface name into /etc/pwnagotchi/config.toml
 # as  "main.iface".
 #
-PWNY_EXT_WLAN="wlan0"
+PWNY_EXT_WLAN=""
 
 # OG defaults
 export PWNY_WIFI_IFACE='wlan0'
-export PWNY_MON_IFACE='mon0'
+export PWNY_MON_IFACE='wlan0mon'
 
 export PWNY_BOARD=$(cat /proc/device-tree/model)
 
