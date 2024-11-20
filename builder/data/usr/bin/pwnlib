@@ -7,10 +7,10 @@
 PWNY_EXT_WLAN=""
 
 # OG defaults
-export PWNY_WIFI_IFACE='wlan0'
-export PWNY_MON_IFACE='wlan0mon'
+export PWNY_WIFI_IFACE=${PWNY_WIFI_IFACE:-'wlan0'}
+export PWNY_MON_IFACE=${PWNY_MON_IFACE:-'wlan0mon'}
 
-export PWNY_BOARD=$(cat /proc/device-tree/model)
+export PWNY_BOARD=$(cat /proc/device-tree/model | tr -d '\0')
 
 # look for monitor interface in config files
 for conf in /usr/local/lib/python*/dist-packages/pwnagotchi/default.toml \
