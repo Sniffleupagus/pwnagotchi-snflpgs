@@ -10,8 +10,10 @@
 
 sleep  10
 
-# set up usb0 through NetworkManager - still not working
-nmcli dev mod usb0 IPV4.ADDRESS 10.0.0.1/24 IPV4.GATEWAY 10.0.0.1 || true
+# set up usb0 through NetworkManager - still not working, so || true to not exit on this
+nmcli --wait 3 dev con usb0 || true
+nmcli con mod usb0 ipv4.method manual ipv4.address 10.0.0.2/24 ipv4.gateway 10.0.0.1 || true
+nmcli dev set usb0 autoconnect yes || true
 
 export PWNY_BOARD=$(cat /proc/device-tree/model)
 if [ "${PWNY_BOARD}" = "BananaPi BPI-M4-Zero" ]; then
