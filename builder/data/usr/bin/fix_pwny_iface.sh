@@ -15,7 +15,7 @@
 #  fix_pwny_iface.sh 2
 #
 
-export PWNY_BOARD=$(cat /proc/device-tree/model)
+export PWNY_BOARD=$(cat /proc/device-tree/model | tr -d '\0')
 
 if [[ ( "${PWNY_BOARD}" == "BananaPi BPI-M4-Zero v2" ) || ( "${PWNY_BOARD}" == "Raspberry Pi"* ) ]]; then
     # nexmon devices use these standard names for pwnagotchi
