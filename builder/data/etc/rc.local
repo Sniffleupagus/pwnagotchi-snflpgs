@@ -23,7 +23,7 @@ if [ "${PWNY_BOARD}" = "BananaPi BPI-M4-Zero" ]; then
     fi
 fi
 
-# set up usb0 through NetworkManager - still not working, so || true to not exit on this
+# set up usb0 through NetworkManager
 nmcli --wait 10 dev con usb0 || true
 nmcli con mod usb0 ipv4.method manual ipv4.address 10.0.0.2/24 ipv4.gateway 10.0.0.1 || true
 nmcli dev set usb0 autoconnect yes || true
