@@ -8,17 +8,11 @@
 
 # pwnagotchi first run script
 
-sleep  10
-
-# set up usb0 through NetworkManager - still not working, so || true to not exit on this
-nmcli --wait 3 dev con usb0 || true
-nmcli con mod usb0 ipv4.method manual ipv4.address 10.0.0.2/24 ipv4.gateway 10.0.0.1 || true
-nmcli dev set usb0 autoconnect yes || true
-
 export PWNY_BOARD=$(cat /proc/device-tree/model)
 if [ "${PWNY_BOARD}" = "BananaPi BPI-M4-Zero" ]; then
     if ! ls -d /sys/class/net/w* ; then
-	       # no wifi, so maybe it is a bananapim4zero v2
+	# no wifi, so maybe it is a bananapim4zero v2
+	systemctl enable reload_nexmon.service
         if ! grep bananapi-m4-sdio-wifi-bt /boot/armbianEnv.txt; then
     	      sed -i.ORIG 's/overlays=\ *i2c4-pg/overlays=bananapi-m4-sdio-wifi-bt/' /boot/armbianEnv.txt
 	          sync
@@ -28,6 +22,11 @@ if [ "${PWNY_BOARD}" = "BananaPi BPI-M4-Zero" ]; then
         fi
     fi
 fi
+
+# set up usb0 through NetworkManager - still not working, so || true to not exit on this
+nmcli --wait 10 dev con usb0 || true
+nmcli con mod usb0 ipv4.method manual ipv4.address 10.0.0.2/24 ipv4.gateway 10.0.0.1 || true
+nmcli dev set usb0 autoconnect yes || true
 
 systemctl stop bettercap pwngrid-peer pwnagotchi
 
