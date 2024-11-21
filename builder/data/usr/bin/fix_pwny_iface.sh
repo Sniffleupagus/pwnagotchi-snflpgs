@@ -21,6 +21,9 @@ if [[ ( "${PWNY_BOARD}" == "BananaPi BPI-M4-Zero v2" ) || ( "${PWNY_BOARD}" == "
     # nexmon devices use these standard names for pwnagotchi
     wifidev="wlan0"
     mondev="wlan0mon"
+    if [ -e /sys/class/net/mon0 ]; then
+	    /usr/bin/monstop
+    fi
 else
     # try to figure it out dynamically
     # use built in device, unless another number specified on command line
