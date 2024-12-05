@@ -47,6 +47,7 @@ def do_manual_mode(agent):
 def do_auto_mode(agent):
     logging.info("entering auto mode ...")
 
+    agent.last_session.parse(agent.view(), args.skip_session)
     agent.mode = 'auto'
     agent.start()
 
