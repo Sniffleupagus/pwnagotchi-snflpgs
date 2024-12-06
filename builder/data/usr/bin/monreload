@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+source /usr/bin/pwnlib
+
+if [[ ( "${PWNY_BOARD}" == "BananaPi BPI-M4-Zero v2" ) || ( "${PWNY_BOARD}" == "Raspberry Pi"* ) ]]; then
+    echo "Reloading nexmon driver"
+    reload_brcm
+    echo "Restarting monitor interface"
+    start_monitor_interface
+    iwconfig
+else
+    echo "Not reloading brcmfmac on ${PWNY_BOARD}"
+fi

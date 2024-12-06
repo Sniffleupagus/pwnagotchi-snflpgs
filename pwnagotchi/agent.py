@@ -6,6 +6,7 @@ import logging
 import asyncio
 import _thread
 import prctl
+import random
 
 import pwnagotchi
 import pwnagotchi.utils as utils
@@ -466,8 +467,14 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             logging.debug("recon is stale, skipping assoc(%s)", ap['mac'])
             return False
 
-        if throttle == -1 and "throttle_a" in self._config['personality']:
-            throttle = self._config['personality']['throttle_a']
+        # send attack if random generated r is > associate probability
+        r = random.random()
+        if r >= self._config['personality'].get('assoc_prob', 1.0):
+            logging.debug("Not associating to %s this time (%s)" % (ap['hostname'], r))
+            return False
+
+        if throttle == -1:
+            throttle = self._config['personality'].get('throttle_a', 0.0)
 
         if self._config['personality']['associate'] and self._should_interact(ap['mac']):
             self._view.on_assoc(ap)
@@ -495,8 +502,14 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             logging.debug("recon is stale, skipping deauth(%s)", sta['mac'])
             return False
 
-        if throttle == -1 and "throttle_d" in self._config['personality']:
-            throttle = self._config['personality']['throttle_d']
+        # send attack if random generated r is > deauth probability
+        r = random.random()
+        if r >= self._config['personality'].get('deauth_prob', 1.0):
+            logging.debug("Not deauthing %s this time" % ap['hostname'])
+            return False
+
+        if throttle == -1:
+            throttle = self._config['personality'].get('throttle_d', 0.0)
 
         if self._config['personality']['deauth'] and self._should_interact(sta['mac']):
             self._view.on_deauth(sta)

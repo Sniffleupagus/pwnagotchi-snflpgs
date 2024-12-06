@@ -1,0 +1,15 @@
+[Unit]
+Description=Reloading nexmon driver because it, like, fails the first time
+Requires=network.target
+
+Before=bettercap.service
+Before=pwngrid-peer.service
+Before=pwnagotchi.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/monreload
+
+[Install]
+WantedBy=multi-user.target

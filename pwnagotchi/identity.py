@@ -5,6 +5,7 @@ import base64
 import hashlib
 import os
 import logging
+import shutil
 
 DefaultPath = "/etc/pwnagotchi/"
 
@@ -50,8 +51,13 @@ class KeyPair(object):
                 with open(self.fingerprint_path, 'w+t') as fp:
                     fp.write(self.fingerprint)
 
-                # no exception, keys loaded correctly.
-                self._view.on_starting()
+                # accidental addition by V0rT3x
+                if not os.path.exists(f'{self.priv_path}.backup'):
+                    shutil.copy(self.priv_path, f'{self.priv_path}.backup')
+                if not os.path.exists(f'{self.pub_path}.backup'):
+                    shutil.copy(self.pub_path, f'{self.pub_path}.backup')
+                if not os.path.exists(f'{self.fingerprint_path}.backup'):
+                    shutil.copy(self.fingerprint_path, f'{self.fingerprint_path}.backup')
                 return
 
             except Exception as e:
@@ -63,6 +69,9 @@ class KeyPair(object):
                     pass
                 except:
                     pass
+
+            # no exception, keys loaded correctly.
+            self._view.on_starting()
 
     def sign(self, message):
         hasher = SHA256.new(message.encode("ascii"))

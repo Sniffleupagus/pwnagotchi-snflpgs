@@ -26,6 +26,9 @@ class Display(View):
         )
         self._render_thread_instance.start()
 
+    def is_dummy_display(self):
+        return self._implementation.name == 'dummydisplay'
+
     def is_inky(self):
         return self._implementation.name == 'inky'
 
