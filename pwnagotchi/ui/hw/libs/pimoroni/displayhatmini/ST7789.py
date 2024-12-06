@@ -22,6 +22,8 @@ import numbers
 import time
 import numpy as np
 
+import logging
+
 import spidev
 import RPi.GPIO as GPIO
 
@@ -104,7 +106,7 @@ class ST7789(object):
 
     def __init__(self, port, cs, dc, backlight, rst=None, width=320,
                  height=240, rotation=0, invert=True, spi_speed_hz=3 * 1000 * 1000,
-                 backlight_pwm=False,
+                 backlight_pwm=True,
                  offset_left=0,
                  offset_top=0):
         """Create an instance of the display using SPI communication.
@@ -131,7 +133,7 @@ class ST7789(object):
         if width != height and rotation in [90, 270]:
             raise ValueError("Invalid rotation {} for {}x{} resolution".format(rotation, width, height))
 
-        GPIO.setwarnings(False)
+        #GPIO.setwarnings(False)
         GPIO.setmode(GPIO.BCM)
 
         self._spi = spidev.SpiDev(port, cs)
@@ -156,9 +158,13 @@ class ST7789(object):
         self._backlight = backlight
         self._brightness = 0
         if backlight is not None:
+          try:
+            logging.info("Enabling backlight: %s" % self._backlight)
             if backlight_pwm:
-                self._backlight_pwm = HardwarePWM(pwm_channel=1, hz=100)
-                self._brightness = 50
+                GPIO.setup(backlight, GPIO.OUT)
+                self._backlight_pwm = HardwarePWM(backlight, 100)
+                #self._backlight_pwm = HardwarePWM(pwm_channel=1, hz=100)
+                self._brightness = 100
                 self._backlight_pwm.start(self._brightness)
             else:
                 self._backlight_pwm = None
@@ -167,6 +173,8 @@ class ST7789(object):
                 time.sleep(0.1)
                 GPIO.output(backlight, GPIO.HIGH)
                 self._brightness = 100
+          except Exception as e:
+              logging.exception(e)
 
         # Setup reset as output (if provided).
         if rst is not None:
@@ -194,11 +202,12 @@ class ST7789(object):
         """Set the backlight on/off. PWM 0.0-1.0, otherwise 1 or 0."""
         if self._backlight is not None:
             if self._backlight_pwm:
-                self._backlight_pwm.change_duty_cycle(int(value * 100))
+                self._backlight_pwm.ChangeDutyCycle(int(value * 100))
+                #self._backlight_pwm.change_duty_cycle(int(value * 100))
                 self._brightness = value
             else:
-                #if value < 1:
-                #    value = GPIO.HIGH if value > 0.3 else GPIO.LOW
+                if value < 1:
+                    value = GPIO.HIGH if value > 0.3 else GPIO.LOW
                 GPIO.output(self._backlight, value)
                 self._brightness = value
 
