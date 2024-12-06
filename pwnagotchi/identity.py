@@ -51,6 +51,7 @@ class KeyPair(object):
                 with open(self.fingerprint_path, 'w+t') as fp:
                     fp.write(self.fingerprint)
 
+                # accidental addition by V0rT3x
                 if not os.path.exists(f'{self.priv_path}.backup'):
                     shutil.copy(self.priv_path, f'{self.priv_path}.backup')
                 if not os.path.exists(f'{self.pub_path}.backup'):
@@ -78,4 +79,3 @@ class KeyPair(object):
         signature = signer.sign(hasher)
         signature_b64 = base64.b64encode(signature).decode("ascii")
         return signature, signature_b64
-# Pwned by V0rT3x
