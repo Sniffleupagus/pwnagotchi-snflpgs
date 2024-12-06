@@ -51,18 +51,6 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         self.last_session = LastSession(self._config)
         self.mode = 'auto'
 
-         # default behavior: always perform attack
-        if 'assoc_prob' not in config['personality']:
-            config['personality']['assoc_prob'] = 1.0
-        if 'deauth_prob' not in config['personality']:
-            config['personality']['deauth_prob'] = 1.0
-
-        # default behavior, no delay
-        if 'throttle_a' not in config['personality']:
-            config['personality']['throttle_a'] = 0.0
-        if 'throttle_d' not in config['personality']:
-            config['personality']['throttle_d'] = 0.0
-
         if not os.path.exists(config['bettercap']['handshakes']):
             os.makedirs(config['bettercap']['handshakes'])
 
@@ -481,12 +469,12 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
 
         # send attack if random generated r is > associate probability
         r = random.random()
-        if r >= self._config['personality']['assoc_prob']:
+        if r >= self._config['personality'].get('assoc_prob', 1.0):
             logging.debug("Not associating to %s this time (%s)" % (ap['hostname'], r))
             return False
 
-        if throttle == -1 and "throttle_a" in self._config['personality']:
-            throttle = self._config['personality']['throttle_a']
+        if throttle == -1:
+            throttle = self._config['personality'].get('throttle_a', 0.0)
 
         if self._config['personality']['associate'] and self._should_interact(ap['mac']):
             self._view.on_assoc(ap)
@@ -516,12 +504,12 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
 
         # send attack if random generated r is > deauth probability
         r = random.random()
-        if r >= self._config['personality']['deauth_prob']:
+        if r >= self._config['personality'].get('deauth_prob', 1.0):
             logging.debug("Not deauthing %s this time" % ap['hostname'])
             return False
 
-        if throttle == -1 and "throttle_d" in self._config['personality']:
-            throttle = self._config['personality']['throttle_d']
+        if throttle == -1:
+            throttle = self._config['personality'].get('throttle_d', 0.0)
 
         if self._config['personality']['deauth'] and self._should_interact(sta['mac']):
             self._view.on_deauth(sta)
