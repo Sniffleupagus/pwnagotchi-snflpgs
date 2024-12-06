@@ -1,4 +1,5 @@
 from pwnagotchi.ui.hw.inky import Inky
+from pwnagotchi.ui.hw.dummydisplay import DummyDisplay
 from pwnagotchi.ui.hw.papirus import Papirus
 from pwnagotchi.ui.hw.oledhat import OledHat
 from pwnagotchi.ui.hw.lcdhat import LcdHat
@@ -23,6 +24,10 @@ def display_for(config):
     # config has been normalized already in utils.load_config
     if config['ui']['display']['type'] == 'inky':
         return Inky(config)
+
+    elif config['ui']['display']['type'] == 'dummydisplay':
+        from pwnagotchi.ui.hw.dummydisplay import DummyDisplay
+        return DummyDisplay(config)
 
     elif config['ui']['display']['type'] == 'papirus':
         return Papirus(config)
