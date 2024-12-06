@@ -9,7 +9,9 @@ if is_crypted_mode; then
   done
 fi
 
-mkdir -p /root/handshakes
+if [ ! -d /root/handshakes ] ; then
+  mkdir -p /root/handshakes
+fi
 
 start_monitor_interface
 
