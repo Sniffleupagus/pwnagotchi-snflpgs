@@ -37,7 +37,7 @@ nmcli dev mod usb0 IPV4.ADDRESS 10.0.0.2/24 IPV4.GATEWAY 10.0.0.1
 systemctl stop bettercap pwngrid-peer pwnagotchi
 
 # restore a tarball backup file
-if [[ -f /boot/pwny-backup.tar.gz ]]; then
+if [ -f /boot/pwny-backup.tar.gz ]; then
     echo "+++ Restoring pwny from backup"
     echo "   (not showing handshakes for brevity)"
     (tar -C / -xzvf /boot/pwny-backup.tar.gz && rm /boot/pwny-backup.tar.gz ) | egrep -v "handshakes/.*(pcap|json)"
@@ -70,6 +70,7 @@ mv /etc/rc.local.ORIG /etc/rc.local || cat >/etc/rc.local <<EOF
 exit 0
 EOF
 
+chmod a+x /etc/rc.local
 exec /etc/rc.local
 
 exit 0
