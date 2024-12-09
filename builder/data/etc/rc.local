@@ -14,30 +14,44 @@ if [ "${PWNY_BOARD}" = "BananaPi BPI-M4-Zero" ]; then
 	# no wifi, so maybe it is a bananapim4zero v2
 	systemctl enable reload_nexmon.service
         if ! grep bananapi-m4-sdio-wifi-bt /boot/armbianEnv.txt; then
-    	      sed -i.ORIG 's/overlays=\ *i2c4-pg/overlays=bananapi-m4-sdio-wifi-bt/' /boot/armbianEnv.txt
-	          sync
-	          echo "Rebooting to install wifi/bt overlay..."
-	          sleep 10
-	          reboot
+	    sed -i.ORIG 's/overlays=\ *i2c4-pg/overlays=bananapi-m4-sdio-wifi-bt/' /boot/armbianEnv.txt
+
+	    # no bluetooth on V2, so disable wof.service
+	    systemctl disable wof.service || true
+
+	    sync
+	    echo "Rebooting to install wifi/bt overlay..."
+	    sleep 10
+	    reboot
         fi
     fi
 fi
 
 # set up usb0 through NetworkManager
+echo "+++ Configuring RNDIS interface with NetworkManager"
 nmcli --wait 10 dev con usb0 || true
 nmcli con mod usb0 ipv4.method manual ipv4.address 10.0.0.2/24 ipv4.gateway 10.0.0.1 || true
 nmcli dev set usb0 autoconnect yes || true
-
-# set up usb0 through NetworkManager
-nmcli dev mod usb0 IPV4.ADDRESS 10.0.0.1/24 IPV4.GATEWAY 10.0.0.1
+nmcli dev mod usb0 IPV4.ADDRESS 10.0.0.2/24 IPV4.GATEWAY 10.0.0.1
 
 systemctl stop bettercap pwngrid-peer pwnagotchi
+
+# restore a tarball backup file
+if [[ -f /boot/pwny-backup.tar.gz ]]; then
+    echo "+++ Restoring pwny from backup"
+    echo "   (not showing handshakes for brevity)"
+    (tar -C / -xzvf /boot/pwny-backup.tar.gz && rm /boot/pwny-backup.tar.gz ) | egrep -v "handshakes/.*(pcap|json)"
+fi
 
 /usr/bin/fix_pwny_ethernet.sh
 /usr/bin/fix_pwny_iface.sh
 
+echo "+++ Setting up pwnagotchi system services"
+systemctl enable bettercap pwngrid-peer pwnagotchi
+
 systemctl restart bettercap pwngrid-peer pwnagotchi
 
+echo "- Archiving to rc.local.FIRSTRUN and restoring original rc.local"
 mv /etc/rc.local /etc/rc.local.FIRSTRUN
 mv /etc/rc.local.ORIG /etc/rc.local || cat >/etc/rc.local <<EOF
 #!/bin/sh -e
