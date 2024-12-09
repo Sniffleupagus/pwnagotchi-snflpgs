@@ -39,8 +39,12 @@ systemctl stop bettercap pwngrid-peer pwnagotchi
 # restore a tarball backup file
 if [ -f /boot/pwny-backup.tar.gz ]; then
     echo "+++ Restoring pwny from backup"
-    echo "   (not showing handshakes for brevity)"
-    (tar -C / -xzvf /boot/pwny-backup.tar.gz && rm /boot/pwny-backup.tar.gz ) | egrep -v "handshakes/.*(pcap|json)"
+    tar -C / --keep-newer-files -xzvf /boot/pwny-backup.tar.gz --exclude boot/{config.txt,cmdline.txt} --exclude root/handshakes
+    echo "+++ quietly extracting handshakes to /boot/handshakes"
+    tar -C /boot --strip-components 1 -xzf /boot/pwny-backup.tar.gz root/handshakes
+    echo ">>>---> Moving backup to pwnagotchi home directory"
+    mkdir -p -m=755 /home/pwnagotchi/Backups
+    mv /boot/pwny-backup.tar.gz  /home/pwnagotchi/Backups/pwny-backup-STARTUP.tar.gz
 fi
 
 /usr/bin/fix_pwny_ethernet.sh
