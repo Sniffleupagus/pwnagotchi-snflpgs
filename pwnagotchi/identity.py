@@ -51,15 +51,6 @@ class KeyPair(object):
                 with open(self.fingerprint_path, 'w+t') as fp:
                     fp.write(self.fingerprint)
 
-                # accidental addition by V0rT3x
-                if not os.path.exists(f'{self.priv_path}.backup'):
-                    shutil.copy(self.priv_path, f'{self.priv_path}.backup')
-                if not os.path.exists(f'{self.pub_path}.backup'):
-                    shutil.copy(self.pub_path, f'{self.pub_path}.backup')
-                if not os.path.exists(f'{self.fingerprint_path}.backup'):
-                    shutil.copy(self.fingerprint_path, f'{self.fingerprint_path}.backup')
-                return
-
             except Exception as e:
                 # if we're here, loading the keys broke something ...
                 logging.exception("error loading keys, maybe corrupted, not deleting and regenerating ...")
@@ -71,7 +62,10 @@ class KeyPair(object):
                     pass
 
             # no exception, keys loaded correctly.
-            self._view.on_starting()
+            try:
+                self._view.on_starting()
+            except Exception as e:
+                logging.exception(e)
 
     def sign(self, message):
         hasher = SHA256.new(message.encode("ascii"))
