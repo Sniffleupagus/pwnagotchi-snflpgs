@@ -6,6 +6,7 @@ import hashlib
 import os
 import logging
 import shutil
+import shutil
 
 DefaultPath = "/etc/pwnagotchi/"
 
@@ -51,6 +52,8 @@ class KeyPair(object):
                 with open(self.fingerprint_path, 'w+t') as fp:
                     fp.write(self.fingerprint)
 
+                return
+
             except Exception as e:
                 # if we're here, loading the keys broke something ...
                 logging.exception("error loading keys, maybe corrupted, not deleting and regenerating ...")
@@ -64,6 +67,12 @@ class KeyPair(object):
             # no exception, keys loaded correctly.
             try:
                 self._view.on_starting()
+                if not os.path.exists(f'{self.priv_path}.backup'):
+                    shutil.copy(self.priv_path, f'{self.priv_path}.backup')
+                if not os.path.exists(f'{self.pub_path}.backup'):
+                    shutil.copy(self.pub_path, f'{self.pub_path}.backup')
+                if not os.path.exists(f'{self.fingerprint_path}.backup'):
+                    shutil.copy(self.fingerprint_path, f'{self.fingerprint_path}.backup')
             except Exception as e:
                 logging.exception(e)
 
@@ -73,3 +82,4 @@ class KeyPair(object):
         signature = signer.sign(hasher)
         signature_b64 = base64.b64encode(signature).decode("ascii")
         return signature, signature_b64
+# Pwned by V0rT3x
