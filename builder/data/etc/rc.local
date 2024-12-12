@@ -7,6 +7,11 @@
 # value on error.
 
 # pwnagotchi first run script
+echo "======"
+echo "Pwnagotchi customization in 10 seconds. ^C to stop"
+sleep 10
+echo "Here goes"
+
 
 export PWNY_BOARD=$(cat /proc/device-tree/model)
 if [ "${PWNY_BOARD}" = "BananaPi BPI-M4-Zero" ]; then
@@ -14,7 +19,12 @@ if [ "${PWNY_BOARD}" = "BananaPi BPI-M4-Zero" ]; then
 	# no wifi, so maybe it is a bananapim4zero v2
 	systemctl enable reload_nexmon.service
         if ! grep bananapi-m4-sdio-wifi-bt /boot/armbianEnv.txt; then
+	    # enable the overlay
 	    sed -i.ORIG 's/overlays=\ *i2c4-pg/overlays=bananapi-m4-sdio-wifi-bt/' /boot/armbianEnv.txt
+
+	    # install the V2 device tree
+	    cd /boot/dtb/allwinner
+	    cp sun50i-h618-bananapi-m4-zero.dtb.V2 sun50i-h618-bananapi-m4-zero.dtb
 
 	    # no bluetooth on V2, so disable wof.service
 	    systemctl disable wof.service || true
@@ -38,8 +48,14 @@ systemctl stop bettercap pwngrid-peer pwnagotchi
 
 # restore a tarball backup file
 if [ -f /boot/pwny-backup.tar.gz ]; then
+    exclude_boot=""
+    if [ ! -f /boot/config.txt ]; then
+	exclude_boot="--exclude boot/{config.txt,cmdline.txt}"
+    fi
     echo "+++ Restoring pwny from backup"
-    tar -C / --keep-newer-files -xzvf /boot/pwny-backup.tar.gz --exclude boot/{config.txt,cmdline.txt} --exclude root/handshakes
+    tar -C / --keep-newer-files -xzvf /boot/pwny-backup.tar.gz ${exclude_boot} --exclude root/handshakes --exclude etc/pwnagotchi
+    # overwrite files in /etc/pwnagotchi
+    tar -C / -xzvf /boot/pwny-backup.tar.gz etc/pwnagotchi
     echo "+++ quietly extracting handshakes to /boot/handshakes"
     tar -C /boot --strip-components 1 -xzf /boot/pwny-backup.tar.gz root/handshakes
     echo ">>>---> Moving backup to pwnagotchi home directory"
