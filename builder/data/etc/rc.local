@@ -9,7 +9,31 @@
 # pwnagotchi first run script
 echo "======"
 echo "Pwnagotchi customization in 10 seconds. ^C to stop"
-sleep 10
+
+# find a working LED
+PWNY_LED=led0
+for l in led0 ACT "red:status"; do
+    if [ -e "/sys/class/leds/$l/brightness" ]; then
+        PWNY_LED=$l
+        break
+    fi
+done
+
+# well ... it blinks the led
+blink_led() {
+  for i in $(seq 1 "$1"); do
+    echo 0 >/sys/class/leds/${PWNY_LED}/brightness
+    sleep 0.3
+    echo 1 >/sys/class/leds/${PWNY_LED}/brightness
+    sleep 0.3
+  done
+  echo 0 >/sys/class/leds/${PWNY_LED}/brightness
+  sleep 0.3
+}
+blink 5
+sleep 2
+blink 5
+sleep 2
 echo "Here goes"
 
 
