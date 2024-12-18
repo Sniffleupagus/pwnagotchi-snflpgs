@@ -27,10 +27,13 @@ import logging
 import spidev
 import RPi.GPIO as GPIO
 
+pwm_type = 0
 try:
     from rpi_hardware_pwm import HardwarePWM
+    pwm_type = 1
 except:
     from RPi.GPIO import PWM as HardwarePWM
+    pwm_type = 2
 
 # Hardware PWM for the backlight LED requires and external library installed
 # with pip3, and a dtoverlay added to /boot/config.txt to enable hardware PWM
@@ -160,10 +163,12 @@ class ST7789(object):
         if backlight is not None:
           try:
             logging.info("Enabling backlight: %s" % self._backlight)
-            if backlight_pwm:
+            if backlight_pwm and pwm_type:
                 GPIO.setup(backlight, GPIO.OUT)
-                self._backlight_pwm = HardwarePWM(backlight, 100)
-                #self._backlight_pwm = HardwarePWM(pwm_channel=1, hz=100)
+                if pwm_type == 1:
+                    self._backlight_pwm = HardwarePWM(pwm_channel=1, hz=100)
+                elif pwm_type == 2:
+                    self._backlight_pwm = HardwarePWM(backlight, 160)
                 self._brightness = 100
                 self._backlight_pwm.start(self._brightness)
             else:
@@ -201,9 +206,11 @@ class ST7789(object):
     def set_backlight(self, value):
         """Set the backlight on/off. PWM 0.0-1.0, otherwise 1 or 0."""
         if self._backlight is not None:
-            if self._backlight_pwm:
-                self._backlight_pwm.ChangeDutyCycle(int(value * 100))
-                #self._backlight_pwm.change_duty_cycle(int(value * 100))
+            if self._backlight_pwm and pwm_type:
+                if pwm_type == 1:
+                    self._backlight_pwm.change_duty_cycle(int(value * 100))
+                elif pwm_type ==2:
+                    self._backlight_pwm.ChangeDutyCycle(int(value * 100))
                 self._brightness = value
             else:
                 if value < 1:
