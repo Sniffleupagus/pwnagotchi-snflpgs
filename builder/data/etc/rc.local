@@ -30,9 +30,9 @@ blink_led() {
   echo 0 >/sys/class/leds/${PWNY_LED}/brightness
   sleep 0.3
 }
-blink 5
+blink_led 5
 sleep 2
-blink 5
+blink_led 5
 sleep 2
 echo "Here goes"
 
