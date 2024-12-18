@@ -1,6 +1,6 @@
 #!/bin/sh
 _hostname=$(hostname)
-_version=$(cut -d"'" -f2 < /usr/local/lib/python3.9/dist-packages/pwnagotchi/_version.py)
+_version=$(cut -d"'" -f2 < /home/pwnagotchi/git/pwnagotchi/pwnagotchi/_version.py)
 echo
 echo "(◕‿‿◕) $_hostname"
 echo
@@ -19,7 +19,6 @@ echo
 echo "    If you want to know what I'm doing, you can check my logs with the command"
 echo "    - pwnlog"
 echo "    - pwnagotchi --version, to check the current version"
-echo "    - sudo pwnagotchi --check-update, to see if there is a new version available"
 echo
 echo "    If you want to know if I'm running, you can use"
 echo "    systemctl status pwnagotchi"
@@ -29,5 +28,5 @@ echo "    sudo systemctl restart pwnagotchi"
 echo
 echo "    Or with the alias 'pwnkill'"
 echo
-echo "    You learn more about me at https://pwnagotchi.ai/"
+echo "    You learn more about me at https://pwnagotchi.org/"
 echo
