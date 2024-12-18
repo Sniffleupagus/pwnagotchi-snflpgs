@@ -5,6 +5,7 @@ FONT_NAME = 'DejaVuSansMono'
 
 # can be changed
 STATUS_FONT_NAME = None
+DEFAULT_SIZE = 10
 SIZE_OFFSET = 0
 
 Bold = None
@@ -24,8 +25,10 @@ def init(config):
 
 def status_font(old_font):
     global STATUS_FONT_NAME, SIZE_OFFSET
-    return ImageFont.truetype(STATUS_FONT_NAME, size=old_font.size + SIZE_OFFSET)
-
+    if not old_font:
+        return None
+    else:
+        return ImageFont.truetype(STATUS_FONT_NAME, size=old_font.size + SIZE_OFFSET)
 
 def setup(bold, bold_small, medium, huge, bold_big, small):
     global Bold, BoldSmall, Medium, Huge, BoldBig, Small, FONT_NAME
