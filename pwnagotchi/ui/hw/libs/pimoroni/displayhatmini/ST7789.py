@@ -109,7 +109,7 @@ class ST7789(object):
 
     def __init__(self, port, cs, dc, backlight, rst=None, width=320,
                  height=240, rotation=0, invert=True, spi_speed_hz=3 * 1000 * 1000,
-                 backlight_pwm=True,
+                 backlight_pwm=150,
                  offset_left=0,
                  offset_top=0):
         """Create an instance of the display using SPI communication.
@@ -121,7 +121,7 @@ class ST7789(object):
         :param port: SPI port number
         :param cs: SPI chip-select number (0 or 1 for BCM
         :param backlight: Pin for controlling backlight
-        :param backlight_pwm: If true use PWM for backlight, if false then full on
+        :param backlight_pwm: 0 == off, >0 == pwm frequency
         :param rst: Reset pin for ST7789
         :param width: Width of display connected to ST7789
         :param height: Height of display connected to ST7789
@@ -166,9 +166,9 @@ class ST7789(object):
             if backlight_pwm and pwm_type:
                 GPIO.setup(backlight, GPIO.OUT)
                 if pwm_type == 1:
-                    self._backlight_pwm = HardwarePWM(pwm_channel=1, hz=100)
+                    self._backlight_pwm = HardwarePWM(pwm_channel=1, hz=backlight_pwm)
                 elif pwm_type == 2:
-                    self._backlight_pwm = HardwarePWM(backlight, 160)
+                    self._backlight_pwm = HardwarePWM(backlight, backlight_pwm)
                 self._brightness = 100
                 self._backlight_pwm.start(self._brightness)
             else:
