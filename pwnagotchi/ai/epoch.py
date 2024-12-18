@@ -25,16 +25,22 @@ class Epoch(object):
         self.bored_for = 0
         # did deauth in this epoch in the current channel?
         self.did_deauth = False
+        # number of deauths in this session
+        self.num_deauths_tot = 0
         # number of deauths in this epoch
         self.num_deauths = 0
         # did associate in this epoch in the current channel?
         self.did_associate = False
+        # total number of associations in this session
+        self.num_assocs_tot = 0
         # number of associations in this epoch
         self.num_assocs = 0
         # number of assocs or deauths missed
         self.num_missed = 0
         # did get any handshake in this epoch?
         self.did_handshakes = False
+        # number of handshakes captured in this session
+        self.num_shakes_tot = 0
         # number of handshakes captured in this epoch
         self.num_shakes = 0
         # number of channels hops
@@ -128,11 +134,13 @@ class Epoch(object):
     def track(self, deauth=False, assoc=False, handshake=False, hop=False, sleep=False, miss=False, inc=1):
         if deauth:
             self.num_deauths += inc
+            self.num_deauths_tot += inc
             self.did_deauth = True
             self.any_activity = True
 
         if assoc:
             self.num_assocs += inc
+            self.num_assocs_tot += inc
             self.did_associate = True
             self.any_activity = True
 
@@ -149,6 +157,7 @@ class Epoch(object):
 
         if handshake:
             self.num_shakes += inc
+            self.num_shakes_tot += inc
             self.did_handshakes = True
 
         if sleep:
@@ -198,14 +207,25 @@ class Epoch(object):
             'tot_bond': self.tot_bond_factor,
             'avg_bond': self.avg_bond_factor,
             'num_deauths': self.num_deauths,
+            'tot_deauths': self.num_deauths_tot,
             'num_associations': self.num_assocs,
+            'tot_associations': self.num_assocs_tot,
             'num_handshakes': self.num_shakes,
+            'tot_handshakes': self.num_shakes_tot,
+            'cpu_load': cpu,
             'cpu_load': cpu,
             'mem_usage': mem,
             'temperature': temp
         }
 
-        self._epoch_data['reward'] = self._reward(self.epoch + 1, self._epoch_data)
+        reward = self._reward(self.epoch + 1, self._epoch_data)
+        self._epoch_data['reward'] = reward
+        self._epoch_data['avg_reward'] = (self._epoch_data.get('avg_reward', 0) * self.epoch + reward) / (self.epoch+1) if self.epoch >= 0 else 0
+        if reward > self._epoch_data.get('max_reward', -1e20):
+            self._epoch_data['max_reward'] = reward
+        if reward < self._epoch_data.get('min_reward', 1e20):
+            self._epoch_data['min_reward'] = reward
+
         self._epoch_data_ready.set()
 
         logging.info("[epoch %d] duration=%s slept_for=%s blind=%d sad=%d bored=%d inactive=%d active=%d peers=%d tot_bond=%.2f "
