@@ -32,8 +32,11 @@ try:
     from rpi_hardware_pwm import HardwarePWM
     pwm_type = 1
 except:
-    from RPi.GPIO import PWM as HardwarePWM
-    pwm_type = 2
+    try:
+        from RPi.GPIO import PWM as HardwarePWM
+        pwm_type = 2
+    except:
+        pwm_type = 0
 
 # Hardware PWM for the backlight LED requires and external library installed
 # with pip3, and a dtoverlay added to /boot/config.txt to enable hardware PWM
