@@ -44,13 +44,10 @@ if [ "${PWNY_BOARD}" = "BananaPi BPI-M4-Zero" ]; then
 	systemctl enable reload_nexmon.service
         if ! grep bananapi-m4-sdio-wifi-bt /boot/armbianEnv.txt; then
 	    # enable the overlay
-	    sed -i.ORIG 's/overlays=\ *i2c4-pg/overlays=bananapi-m4-sdio-wifi-bt/' /boot/armbianEnv.txt
+	    sed -i.ORIG '/^overlays=.*bananapi--m4-pg-15/s/^/#/' /boot/armbianEnv.txt
+	    sed -i '/^#overlays=bananapi-m4-sdio/s/^#//' /boot/armbianEnv.txt
 
-	    # install the V2 device tree
-	    cd /boot/dtb/allwinner
-	    cp sun50i-h618-bananapi-m4-zero.dtb.V2 sun50i-h618-bananapi-m4-zero.dtb
-
-	    # no bluetooth on V2, so disable wof.service
+	    # no working bluetooth on V2, so disable wof.service
 	    systemctl disable wof.service || true
 
 	    sync
