@@ -1,7 +1,8 @@
 [Unit]
 Description=bettercap api.rest service.
 Documentation=https://bettercap.org
-Wants=network.target
+After=system-udevd.service
+Wants=network.target systemd-udevd.service
 
 [Service]
 Type=simple
