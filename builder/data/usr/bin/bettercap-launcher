@@ -13,7 +13,20 @@ if [ ! -d /root/handshakes ] ; then
   mkdir -p /root/handshakes
 fi
 
+if [ -e /sys/class/net/mon0 ]; then
+  echo "Removing mon0"
+  airmon-ng stop mon0
+  iw dev mon0 del
+fi
+
 start_monitor_interface
+
+if [ ! ${PWNY_MON_IFACE} == "mon0" -a -e /sys/class/net/mon0 ]; then
+  echo "Removing mon0 that just was created"
+  airmon-ng stop mon0
+  iw dev mon0 del
+  start_monitor_interface
+fi
 
 if is_auto_mode_no_delete; then
   /usr/local/bin/bettercap -no-colors -caplet pwnagotchi-auto -iface ${PWNY_MON_IFACE}
