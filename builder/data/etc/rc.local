@@ -82,6 +82,7 @@ if [ -f /boot/pwny-backup.tar.gz ]; then
     echo ">>>---> Moving backup to pwnagotchi home directory"
     mkdir -p -m=755 /home/pwnagotchi/Backups
     mv /boot/pwny-backup.tar.gz  /home/pwnagotchi/Backups/pwny-backup-STARTUP.tar.gz
+    chown -R pwnagotchi:pwnagotchi /home/pwnagotchi/Backups
 fi
 
 /usr/bin/fix_pwny_ethernet.sh
