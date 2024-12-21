@@ -124,8 +124,10 @@ stop_monitor_interface() {
 
 # returns 0 if the specificed network interface is up
 is_interface_up() {
-  if grep -qi 'up' /sys/class/net/$1/operstate; then
-    return 0
+  if [ -e /sys/class/net/$1 ]; then
+    if grep -qi 'up' /sys/class/net/$1/operstate; then
+      return 0
+    fi
   fi
   return 1
 }
