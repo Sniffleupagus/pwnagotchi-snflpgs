@@ -49,6 +49,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         self._handshakes = {}
         self._total_u_shakes = -1
         self.last_session = LastSession(self._config)
+        self.current_session = LastSession(self._config)
         self.mode = 'auto'
 
         if not os.path.exists(config['bettercap']['handshakes']):
@@ -210,10 +211,13 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         return self._aps_on_channel
 
     def get_current_session(self):
-        session = {}
+        session = self.current_session
         session.duration = time.time() - self._started_at
         session.epochs = self._epoch.epoch
-        session.train_epochs = self._epoch.train_epochs
+        try:
+            session.train_epochs = self._epoch.train_epochs
+        except:
+            session.train_epochs = 0
         session.avg_reward = self._epoch._epoch_data.get('avg_reward', 0)
         session.max_reward = self._epoch._epoch_data.get('max_reward', 0)
         session.min_reward = self._epoch._epoch_data.get('min_reward', 0)
@@ -221,6 +225,8 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         session.associated = self._epoch._epoch_data.get('tot_associations', 0)
         session.handshakes = self._epoch._epoch_data.get('tot_handshakes', 0)
         session.peers = self._epoch.num_peers
+
+        return session
 
     def get_current_channel(self):
         return self._current_channel
