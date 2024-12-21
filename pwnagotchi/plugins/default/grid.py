@@ -130,10 +130,10 @@ class Grid(plugins.Plugin):
         with self.lock:
             try:
                 if agent.mode == 'manu':
-                    logging.info("Updating with %s" % repr(agent.last_session))
+                    logging.debug("Updating with %s" % repr(agent.last_session))
                     grid.update_data(agent.last_session)
                 else:
-                    logging.info("Updating with %s" % repr(agent.get_current_session()))
+                    logging.debug("Updating with %s" % repr(agent.get_current_session()))
                     grid.update_data(agent.get_current_session())
             except Exception as e:
                 logging.exception("error connecting to the pwngrid-peer service:%s  %s" % (agent.mode, e))
