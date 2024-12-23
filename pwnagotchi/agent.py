@@ -7,6 +7,7 @@ import asyncio
 import _thread
 import prctl
 import random
+import datetime
 
 import pwnagotchi
 import pwnagotchi.utils as utils
@@ -212,7 +213,19 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
 
     def get_current_session(self):
         session = self.current_session
-        session.duration = time.time() - self._started_at
+        dur = time.time() - self._started_at
+        days = int(dur/(24*60*60)) if dur > 24*60*60 else 0
+        hours = int ((dur - days * 24*60*60)/(60*60))
+        mins = int ((dur - days * 24*60*60 - hours * 60*60)/60)
+        secs = int (dur - days * 24*60*60 - hours * 60*60 - mins*60)
+
+        if days > 0:
+            session.duration = "%d days, %d hours, %d minutes and %d seconds" % (days, hours, mins, secs)
+        elif hours > 0:
+            session.duration = "%d hours, %d minutes and %d seconds" % (hours, mins, secs)
+        else:
+            session.duration = "%d minutes and %d seconds" % (mins, secs)
+
         session.epochs = self._epoch.epoch
         try:
             session.train_epochs = self._epoch.train_epochs
@@ -224,7 +237,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         session.deauthed = self._epoch._epoch_data.get('tot_deauths', 0)
         session.associated = self._epoch._epoch_data.get('tot_associations', 0)
         session.handshakes = self._epoch._epoch_data.get('tot_handshakes', 0)
-        session.peers = self._epoch.num_peers
+        session.peers = len(self._epoch.tot_peers)
 
         return session
 

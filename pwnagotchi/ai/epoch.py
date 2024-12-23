@@ -47,8 +47,9 @@ class Epoch(object):
         self.num_hops = 0
         # number of seconds sleeping
         self.num_slept = 0
-        # number of peers seen during this epoch
+        # number of peers seen during this epoch, session
         self.num_peers = 0
+        self.tot_peers = {}
         # cumulative bond factor
         self.tot_bond_factor = 0.0  # cum_bond_factor sounded really bad ...
         # average bond factor
@@ -114,6 +115,7 @@ class Epoch(object):
 
         for peer in peers:
             try:
+                self.tot_peers[peer.identity] = peer
                 peers_per_chan[peer.last_channel - 1] += 1.0
             except IndexError:
                 logging.error(
