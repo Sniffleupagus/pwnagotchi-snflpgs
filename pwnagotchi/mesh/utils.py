@@ -114,7 +114,8 @@ class AsyncAdvertiser(object):
                         self._on_new_peer(peer)
                     # update the rest
                     else:
-                        self._peers[ident].update(peer)
+                        if self._peers[ident].update(peer):
+                            plugins.on('peer_update', self, peer)
 
                 if lastpeers != len(self._peers):
                     lastpeers = len(self._peers)

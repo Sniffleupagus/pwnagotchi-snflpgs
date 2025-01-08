@@ -35,11 +35,17 @@ class Peer(object):
         self.adv = obj.get('advertisement', {})
 
     def update(self, new):
+        changed = False
         if self.name() != new.name():
             logging.info("peer %s changed name: %s -> %s" % (self.full_name(), self.name(), new.name()))
+            changed = True
 
         if self.session_id != new.session_id:
             logging.info("peer %s changed session id: %s -> %s" % (self.full_name(), self.session_id, new.session_id))
+            changed = True
+
+        if self.adv.get('extras', None) != new.adv.get('extras', None):
+            changed = True
 
         self.adv = new.adv
         self.rssi = new.rssi
@@ -48,6 +54,8 @@ class Peer(object):
         self.prev_seen = new.prev_seen
         self.first_met = new.first_met
         self.encounters = new.encounters
+
+        return changed
 
     def inactive_for(self):
         return time.time() - self.last_seen
