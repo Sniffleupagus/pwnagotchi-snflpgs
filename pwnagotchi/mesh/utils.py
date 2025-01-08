@@ -38,6 +38,7 @@ class AsyncAdvertiser(object):
             self._advertisement['extras'] = {}
 
         self._advertisement['extras'][key] = value
+        self._update_advertisement()
 
     def get_advertisement_extra(self, key):
         return self._advertisement.get('extras', {}).get(key, None)
