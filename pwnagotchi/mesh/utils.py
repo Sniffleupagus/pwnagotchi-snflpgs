@@ -37,7 +37,7 @@ class AsyncAdvertiser(object):
         if not 'extras' in self._advertisement:
             self._advertisement['extras'] = {}
 
-        self._advertisement['extras']['key'] = value
+        self._advertisement['extras'][key] = value
 
     def get_advertisement_extra(self, key):
         return self._advertisement.get('extras', {}).get(key, None)
