@@ -309,7 +309,11 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             self._view.on_handshakes(new_shakes)
 
     def _update_peers(self):
-        self._view.set_closest_peer(self._closest_peer, len(self._peers))
+        if self._config['ui'].get('show_random_peer', False):
+            if self._peers and len(self._peers) > 1:
+                self._view.set_closest_peer(random.choice(list(self._peers.values())), len(self._peers))
+        else:
+            self._view.set_closest_peer(self._closest_peer, len(self._peers))
 
     def _reboot(self):
         self.set_rebooting()
@@ -393,7 +397,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             try:
                 self._update_peers()
             except Exception as err:
-                logging.error("[agent:_fetch_stats] self.update_peers: %s" % repr(err))
+                logging.exception("[agent:_fetch_stats] self.update_peers: %s" % repr(err))
             try:
                 self._update_counters()
             except Exception as err:
