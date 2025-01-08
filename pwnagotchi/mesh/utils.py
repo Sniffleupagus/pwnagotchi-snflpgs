@@ -33,6 +33,15 @@ class AsyncAdvertiser(object):
     def fingerprint(self):
         return self._keypair.fingerprint
 
+    def set_advertisement_extra(self, key, value):
+        if not 'extras' in self._advertisement:
+            self._advertisement['extras'] = {}
+
+        self._advertisement['extras']['key'] = value
+
+    def get_advertisement_extra(self, key):
+        return self._advertisement.get('extras', {}).get(key, None)
+
     def _update_advertisement(self):
         self._advertisement['pwnd_run'] = len(self._handshakes)
         self._advertisement['pwnd_tot'] = self._total_u_shakes
