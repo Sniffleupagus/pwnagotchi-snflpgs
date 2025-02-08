@@ -519,7 +519,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             self._view.on_assoc(ap)
 
             try:
-                logging.info("sending association frame to %s (%s %s) on channel %d [%d clients], %d dBm...",
+                logging.info("%s sending association frame to %s (%s %s) on channel %d [%d clients], %d dBm...", prctl.get_name(),
                     ap['hostname'], ap['mac'], ap['vendor'], ap['channel'], len(ap['clients']), ap['rssi'])
                 self.run('wifi.assoc %s' % ap['mac'])
                 self._epoch.track(assoc=True)
