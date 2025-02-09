@@ -74,11 +74,12 @@ if [ -f /boot/pwny-backup.tar.gz ]; then
 	exclude_boot="--exclude boot/{config.txt,cmdline.txt}"
     fi
     echo "+++ Restoring pwny from backup"
-    tar -C / --keep-newer-files -xzvf /boot/pwny-backup.tar.gz ${exclude_boot} --exclude root/handshakes --exclude etc/pwnagotchi
+    tar -C / -h --keep-directory-symlink -xzf /boot/pwny-backup.tar.gz ${exclude_boot} --exclude root/handshakes --exclude etc/pwnagotchi && true
     # overwrite files in /etc/pwnagotchi
     tar -C / -xzvf /boot/pwny-backup.tar.gz etc/pwnagotchi
     echo "+++ quietly extracting handshakes to /boot/handshakes"
-    tar -C /boot --strip-components 1 -xzf /boot/pwny-backup.tar.gz root/handshakes
+    tar -C /boot --strip-components 1 --dereference --keep-directory-symlink -xzf /boot/pwny-backup.tar.gz root/handshakes || \
+    tar -C /boot --strip-components 1 --dereference --keep-directory-symlink -xzf /boot/pwny-backup.tar.gz boot/handshakes
     echo ">>>---> Moving backup to pwnagotchi home directory"
     mkdir -p -m=755 /home/pwnagotchi/Backups
     mv /boot/pwny-backup.tar.gz  /home/pwnagotchi/Backups/pwny-backup-STARTUP.tar.gz
@@ -109,10 +110,13 @@ mv /etc/rc.local.ORIG /etc/rc.local || cat >/etc/rc.local <<EOF
 #
 # By default this script does nothing.
 
+nmcli conn up usb0
 exit 0
 EOF
 
 chmod a+x /etc/rc.local
+reboot
 exec /etc/rc.local
 
+nmcli conn up usb0
 exit 0
