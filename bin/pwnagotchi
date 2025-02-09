@@ -6,6 +6,7 @@ import signal
 import sys
 import toml
 import prctl
+import operator
 
 import pwnagotchi
 from pwnagotchi import utils
@@ -15,6 +16,7 @@ from pwnagotchi import restart
 from pwnagotchi import fs
 from pwnagotchi.utils import DottedTomlEncoder
 
+from dateutil.parser import isoparse
 
 def do_clear(display):
     logging.info("clearing the display ...")
@@ -66,7 +68,9 @@ def do_auto_mode(agent):
                     logging.info("%d access points on channel %d" % (len(aps), ch))
 
                 # for each ap on this channel
-                for ap in aps:
+                sorted_aps = sorted(aps, key=lambda x:(int(isoparse(x['last_seen']).timestamp()),x['rssi']), reverse=True)
+
+                for ap in sorted_aps:
                     # send an association frame in order to get for a PMKID
                     agent.associate(ap)
                     # deauth all client stations in order to get a full handshake
