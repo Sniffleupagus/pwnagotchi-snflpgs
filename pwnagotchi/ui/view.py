@@ -36,6 +36,7 @@ class View(object):
         self._render_cbs = []
         self._config = config
         self._canvas = None
+        self._web_canvas = None
         self._frozen = False
         self._lock = Lock()
         self._voice = Voice(lang=config['main']['lang'])
@@ -424,9 +425,12 @@ class View(object):
                 plugins.on('ui_update', self)
 
                 for key, lv in state.items():
-                    lv.draw(self._canvas, drawer)
+                    try:
+                        lv.draw(self._canvas, drawer)
+                    except Exception as e:
+                        logging.exception("Error with %s: %s" % (key, e))
 
-                web.update_frame(self._canvas)
+                self._web_canvas = self._canvas.copy()
 
                 for cb in self._render_cbs:
                     cb(self._canvas)
