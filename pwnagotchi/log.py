@@ -3,6 +3,8 @@ import time
 import re
 import os
 import logging
+import logging.handlers
+import syslog
 import shutil
 import gzip
 import warnings
@@ -219,11 +221,12 @@ def setup_logging(args, config):
     filename = cfg['path']
 
     formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] (%(filename)s:%(lineno)d) %(funcName)s: %(message)s")
+    formatter_notime = logging.Formatter("[%(levelname)s] (%(filename)s:%(lineno)d) %(funcName)s: %(message)s")
     root = logging.getLogger()
 
     root.setLevel(logging.DEBUG if args.debug else logging.INFO)
 
-    if filename:
+    if filename and filename != "":
         # since python default log rotation might break session data in different files,
         # we need to do log rotation ourselves
         log_rotation(filename, cfg)
@@ -231,11 +234,15 @@ def setup_logging(args, config):
         file_handler = logging.FileHandler(filename)
         file_handler.setFormatter(formatter)
         root.addHandler(file_handler)
-
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    root.addHandler(console_handler)
-
+    if cfg.get('console', True):
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
+        root.addHandler(console_handler)
+    if cfg.get('syslog', False):
+        syslog_handler = logging.handlers.SysLogHandler(address='/dev/log', facility=syslog.LOG_USER)
+        syslog_handler.setLevel(logging.DEBUG if args.debug else logging.INFO)
+        syslog_handler.setFormatter(formatter_notime)
+        root.addHandler(syslog_handler)
     if not args.debug:
         # disable scapy and tensorflow logging
         logging.getLogger("scapy").disabled = True
