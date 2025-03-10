@@ -25,6 +25,7 @@ def is_connected():
 
 def call(path, obj=None):
     url = '%s%s' % (API_ADDRESS, path)
+
     if obj is None:
         r = requests.get(url, headers=None, timeout=(30.0, 60.0))
     elif isinstance(obj, dict):
@@ -33,7 +34,8 @@ def call(path, obj=None):
         r = requests.post(url, headers=None, data=obj, timeout=(30.0, 60.0))
 
     if r.status_code != 200:
-        raise Exception("(status %d) %s" % (r.status_code, r.text))
+        #raise Exception("(status %d) %s" % (r.status_code, r.text))
+        logging.exception("(status %d) %s" % (r.status_code, r.text))
     return r.json()
 
 
