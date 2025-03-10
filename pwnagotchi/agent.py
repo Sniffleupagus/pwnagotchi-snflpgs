@@ -139,6 +139,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                 time.sleep(1)
 
     def start(self):
+      try:
         self.start_ai()
         self._wait_bettercap()
         self.setup_events()
@@ -149,6 +150,8 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         # print initial stats
         self.next_epoch()
         self.set_ready()
+      except Exception as e:
+          logging.exception('\tSTART: %s' % e)
 
     def recon(self):
         recon_time = self._config['personality']['recon_time']
@@ -310,11 +313,12 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
 
     def _update_peers(self):
         try:
-            if self._config['ui'].get('show_random_peer', False):
-                if self._peers and len(self._peers) > 1:
-                    self._view.set_closest_peer(random.choice(list(self._peers.values())), len(self._peers))
-                else:
-                    self._view.set_closest_peer(self._closest_peer, len(self._peers))
+            if self._config['ui'].get('show_random_peer', False) and self._peers and len(self._peers) > 1:
+                logging.debug("Random peer: %s" % self._closest_peer)
+                self._view.set_closest_peer(random.choice(list(self._peers.values())), len(self._peers))
+            else:
+                logging.debug("Closest peer: %s" % self._closest_peer)
+                self._view.set_closest_peer(self._closest_peer, len(self._peers))
         except Exception as e:
             logging.exception(e)
 
