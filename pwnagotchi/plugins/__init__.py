@@ -154,8 +154,14 @@ def toggle_plugin(name, enable=True):
         time.sleep(3)
         if pwnagotchi.config:
             one(name, 'config_changed', pwnagotchi.config)
-        one(name, 'ui_setup', view.ROOT)
-        one(name, 'ready', view.ROOT._agent)
+        try:
+            one(name, 'ui_setup', view.ROOT)
+        except Exception as e:
+            logging.exception(e)
+        try:
+            one(name, 'ready', view.ROOT._agent)
+        except Exception as e:
+            logging.exception(e)
         if pwnagotchi.config:
             save_config(pwnagotchi.config, '/etc/pwnagotchi/config.toml')
         return True
