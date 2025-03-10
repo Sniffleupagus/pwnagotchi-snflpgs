@@ -160,7 +160,8 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         channels = self._config['personality']['channels']
 
         if self._epoch.inactive_for >= max_inactive:
-            recon_time *= recon_mul
+            pass
+            #recon_time *= recon_mul
 
         self._view.set('channel', '*')
 
@@ -574,7 +575,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         else:
             return False
 
-    def set_channel(self, channel, verbose=True):
+    def set_channel(self, channel, verbose=False):
         if self.is_stale():
             logging.debug("recon is stale, skipping set_channel(%d)", channel)
             return
