@@ -47,7 +47,8 @@ class PluginEventQueue(threading.Thread):
 
     def __del__(self):
         self.keep_going = False
-        self._worker_thread.join()
+        if self._worker_thread:
+            self._worker_thread.join()
         if self.load_handler:
             self.load_handler.join()
 
@@ -72,10 +73,10 @@ class PluginEventQueue(threading.Thread):
             self.work_queue.put([event_name, args, kwargs])
 
     def run(self):
-        logging.debug("Worker thread starting for %s"%(self.plugin_name))
+        logging.debug("Plugin %s starting"%(self.plugin_name))
         prctl.set_name("PLG %s" % self.plugin_name)
         self.process_events()
-        logging.info("Worker thread exiting for %s"%(self.plugin_name))
+        logging.info("Plugin %s terminated."%(self.plugin_name))
 
     def process_event(self, event_name, *args, **kwargs):
         cb_name = 'on_%s' % event_name
