@@ -16,7 +16,8 @@ def decode(r, verbose_errors=True):
             err = "error %d: %s" % (r.status_code, r.text.strip())
             if verbose_errors:
                 logging.info(err)
-            raise Exception(err)
+                # moved the raise under here..  it was even with "if"
+                raise Exception(err)
         return r.text
 
 
@@ -58,8 +59,20 @@ class Client(object):
                 logging.debug("Lost websocket connection. Reconnecting...")
             except websockets.exceptions.WebSocketException as wex:
                 logging.debug("Websocket exception (%s)", wex)
+            except Exception as e:
+                logging.exception(e)
+                return
             restart_monitor = True
 
     def run(self, command, verbose_errors=True):
         r = requests.post("%s/session" % self.url, auth=self.auth, json={'cmd': command})
-        return decode(r, verbose_errors=verbose_errors)
+        try:
+            return decode(r, verbose_errors=verbose_errors)
+        except Exception as e:
+            if "wifi is not running" in ("%s" % e):
+                try:
+                    self.run("wifi.recon on")
+                except Exception as e2:
+                    logging.exception("%s, after %s decoding: %s" % (e2, e, repr(r)))
+            else:
+                logging.exception(e)
