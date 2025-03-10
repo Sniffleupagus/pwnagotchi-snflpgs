@@ -107,7 +107,6 @@ class MemTemp(plugins.Plugin):
             # Configure field list
             self.fields = self.options['fields'].split(',')
             self.fields = [x.strip() for x in self.fields if x.strip() in self.ALLOWED_FIELDS.keys()]
-            self.fields = self.fields[:3]  # limit to the first 3 fields
         except Exception:
             # Set default value
             self.fields = self.DEFAULT_FIELDS
