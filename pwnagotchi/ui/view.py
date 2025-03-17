@@ -42,8 +42,14 @@ class View(object):
         self._voice = Voice(lang=config['main']['lang'])
         self._implementation = impl
         self._layout = impl.layout()
-        self._width = self._layout['width']
-        self._height = self._layout['height']
+        self._rotation = config['ui']['display'].get('rotation',0)
+        if (self._rotation/90)%2 == 0:
+            self._width = self._layout['width']
+            self._height = self._layout['height']
+        else:
+            # when rotated 90 or 270, swap width and height
+            self._width = self._layout['height']
+            self._height = self._layout['width']
 
         # pull from configuration
         colormode = '1' if not 'colormode' in self._config['ui'] else self._config['ui']['colormode']
