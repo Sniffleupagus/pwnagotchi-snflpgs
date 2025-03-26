@@ -74,5 +74,8 @@ class Client(object):
                     self.run("wifi.recon on")
                 except Exception as e2:
                     logging.exception("%s, after %s decoding: %s" % (e2, e, repr(r)))
+            elif "is an unknown BSSID" in ("%s" % e):
+                logging.debug(e)
+                raise   # back to assoc or deauth
             else:
                 logging.exception(e)
