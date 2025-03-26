@@ -162,6 +162,8 @@ class AutoUpdate(plugins.Plugin):
     def on_internet_available(self, agent):
         if self.lock.locked():
             return
+        if not self.options.get("EnableAutoUpdateForReal", False):
+            return
 
         with self.lock:
             logging.debug("[update] internet connectivity is available (ready %s)" % self.ready)
