@@ -33,8 +33,10 @@ class Handler:
         self._agent = agent
         self._app = app
 
+        self._app.config["TEMPLATES_AUTO_RELOAD"] = True
         self._app.add_url_rule('/', 'index', self.with_auth(self.index))
         self._app.add_url_rule('/ui', 'ui', self.with_auth(self.ui))
+        self._app.add_url_rule('/update_action_map', 'update_action_map', self.with_auth(self.update_action_map))
 
         self._app.add_url_rule('/shutdown', 'shutdown', self.with_auth(self.shutdown), methods=['POST'])
         self._app.add_url_rule('/reboot', 'reboot', self.with_auth(self.reboot), methods=['POST'])
@@ -77,7 +79,11 @@ class Handler:
         return render_template('index.html',
                                title=pwnagotchi.name(),
                                other_mode='AUTO' if self._agent.mode == 'manual' else 'MANU',
-                               fingerprint=self._agent.fingerprint())
+                               fingerprint=self._agent.fingerprint(),
+                               img_map=self._agent._view._state.get_map_actions())
+
+    def update_action_map(self):
+        return jsonify(self._agent._view._state.get_map_actions())
 
     def inbox(self):
         page = request.args.get("p", default=1, type=int)
