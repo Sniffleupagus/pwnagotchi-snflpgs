@@ -76,7 +76,6 @@ window.onload = function() {
 	    .then(data => {
 		setMapAreas(data);
 	    }).catch(error => console.error('Error', error));
-		
     }
     setInterval(updateImage, 1000);
     mapResizer()
