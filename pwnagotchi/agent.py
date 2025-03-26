@@ -160,8 +160,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         channels = self._config['personality']['channels']
 
         if self._epoch.inactive_for >= max_inactive:
-            pass
-            #recon_time *= recon_mul
+            recon_time *= recon_mul
 
         self._view.set('channel', '*')
 
@@ -442,8 +441,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                     plugins.on('handshake', self, filename, ap_mac, sta_mac)
                 else:
                     (ap, sta) = ap_and_station
-                    self._last_pwnd = ap['hostname'] if ap['hostname'] != '' and ap[
-                        'hostname'] != '<hidden>' else ap_mac
+                    self._last_pwnd = ap['hostname'] if ap['hostname'] != '' and ap['hostname'] != '<hidden>' else ap_mac
                     logging.warning(
                         "!!! captured new handshake on channel %d, %d dBm: %s (%s) -> %s [%s (%s)] !!!",
                             ap['channel'],
@@ -465,9 +463,9 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                 loop.create_task(self.start_websocket(self._on_event))
                 loop.run_forever()
 
-                logging.debug("[agent:_event_poller] loop loop loop")
+                logging.warn("[agent:_event_poller] loop loop loop")
             except Exception as ex:
-                logging.debug("[agent:_event_poller] Error while polling via websocket (%s)", ex)
+                logging.error("[agent:_event_poller] Error while polling via websocket (%s)", ex)
 
     def start_event_polling(self):
         # start a thread and pass in the mainloop
@@ -498,17 +496,25 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             return False
 
         elif who not in self._history:
-            self._history[who] = 1
+            self._history[who] = 0
             return True
 
+        return self._history[who] < self._config['personality']['max_interactions']
+
+    def _count_interact(self, who):
+        if who not in self._history:
+            self._history[who] = 1
+            return True
         else:
             self._history[who] += 1
-
-        return self._history[who] < self._config['personality']['max_interactions']
 
     def associate(self, ap, throttle=-1):
         if self.is_stale():
             logging.debug("recon is stale, skipping assoc(%s)", ap['mac'])
+            return False
+
+        if self._config['personality'].get('skip_hidden', False) and (ap['hostname'] == '<hidden>' or ap['hostname'] == ''):
+            logging.debug('Skipping hidden: %s' % (ap))
             return False
 
         # send attack if random generated r is > associate probability
@@ -527,6 +533,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                 logging.info("%s sending association frame to %s (%s %s) on channel %d [%d clients], %d dBm...", prctl.get_name(),
                     ap['hostname'], ap['mac'], ap['vendor'], ap['channel'], len(ap['clients']), ap['rssi'])
                 self.run('wifi.assoc %s' % ap['mac'])
+                self._count_interact(ap['mac'])
                 self._epoch.track(assoc=True)
             except Exception as e:
                 self._on_error(ap['mac'], e)
@@ -546,6 +553,10 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
             logging.debug("recon is stale, skipping deauth(%s)", sta['mac'])
             return False
 
+        if self._config['personality'].get('skip_hidden', False) and (ap['hostname'] == '<hidden>' or ap['hostname'] == ''):
+            logging.debug('Skipping hidden: %s' % (ap))
+            return False
+
         # send attack if random generated r is > deauth probability
         r = random.random()
         if r >= self._config['personality'].get('deauth_prob', 1.0):
@@ -562,6 +573,7 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
                 logging.info("deauthing %s (%s) from %s (%s %s) on channel %d, %d dBm ...",
                     sta['mac'], sta['vendor'], ap['hostname'], ap['mac'], ap['vendor'], ap['channel'], ap['rssi'])
                 self.run('wifi.deauth %s' % sta['mac'])
+                self._count_interact(ap['mac'])
                 self._epoch.track(deauth=True)
             except Exception as e:
                 self._on_error(sta['mac'], e)
