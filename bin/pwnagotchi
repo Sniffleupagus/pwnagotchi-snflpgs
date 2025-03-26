@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/home/pwnagotchi/.venv/bin/python3
 import logging
 import argparse
 import time
@@ -64,12 +64,22 @@ def do_auto_mode(agent):
             for ch, aps in channels:
                 agent.set_channel(ch)
 
-                if not agent.is_stale() and agent.any_activity():
-                    logging.info("%d access points on channel %d" % (len(aps), ch))
-
                 # for each ap on this channel
-                sorted_aps = sorted(aps, key=lambda x:(int(isoparse(x['last_seen']).timestamp()),x['rssi']), reverse=True)
+                # only consider ones that have not been maxed out
+                myaps = [ap for ap in aps if agent._should_interact(ap.get('mac', 'oops'))]
 
+                # filter hidden, optionally
+                myaps = [ap for ap in myaps if ap.get('hostname', '') not in ['', '<hidden>'] ] if agent._config['personality'].get('skip_hidden', False) else aps
+                sorted_aps = sorted(myaps, key=lambda x:(int(isoparse(x['last_seen']).timestamp()),x['rssi']), reverse=True)
+
+                if not agent.is_stale() and agent.any_activity():
+                    logging.info("%d access points on channel %d" % (len(myaps), ch))
+
+                if len(sorted_aps) > 20:
+                    logging.info("Shortening to latest 20: %d" % (len(sorted_aps)))
+                    sorted_aps = sorted_aps[:20]
+                elif len(sorted_aps):
+                    logging.info("Processing %d/%d APs: %s" % (len(sorted_aps), len(aps), ["%s:%d" % (ap['hostname'], agent._history.get(ap['mac'], -1)) for ap in sorted_aps]))
                 for ap in sorted_aps:
                     # send an association frame in order to get for a PMKID
                     agent.associate(ap)
