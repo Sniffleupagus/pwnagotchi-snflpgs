@@ -25,6 +25,8 @@ from flask import abort
 from flask import redirect
 from flask import render_template, render_template_string
 
+from pwnagotchi.utils import pointInBox
+
 from io import BytesIO
 
 class Handler:
@@ -36,6 +38,7 @@ class Handler:
         self._app.config["TEMPLATES_AUTO_RELOAD"] = True
         self._app.add_url_rule('/', 'index', self.with_auth(self.index))
         self._app.add_url_rule('/ui', 'ui', self.with_auth(self.ui))
+        self._app.add_url_rule('/clickui/<coords>', 'clickui', self.with_auth(self.clickui))
         self._app.add_url_rule('/update_action_map', 'update_action_map', self.with_auth(self.update_action_map))
 
         self._app.add_url_rule('/shutdown', 'shutdown', self.with_auth(self.shutdown), methods=['POST'])
@@ -82,6 +85,30 @@ class Handler:
                                fingerprint=self._agent.fingerprint(),
                                img_map=self._agent._view._state.get_map_actions())
 
+    def clickui(self, coords):
+        try:
+            logging.warn("WEBHOOK %s: %s, %s" % (request.path, request.query_string.decode(), ",".join([f"{key}={value}" for key, value in request.args.items()])))
+            x,y = list(map(int,request.query_string.decode().split(",")))
+            logging.warn("Split: %s" % (coords))
+            w,h = list(map(int,coords.split("x")))
+            rw = self._agent._view.width()
+            rh = self._agent._view.height()
+            ex = int(rw * x / w)
+            ey = int(rh * y / h)
+            logging.warning("Effective click: %f, %f" % (ex, ey))
+            for (shape, coords, key, link) in self._agent._view._state.get_map_actions():
+                bbox = list(map(int,coords.split(',')))
+                if pointInBox((ex,ey), bbox):
+                    try:
+                        logging.info("%s -> %s" % (key, link))
+                        return redirect(link)
+
+                    except Exception as e:
+                        logging.exception(e)
+        except Exception as e:
+            logging.exception(e)
+        return "OK", 204
+    
     def update_action_map(self):
         return jsonify(self._agent._view._state.get_map_actions())
 

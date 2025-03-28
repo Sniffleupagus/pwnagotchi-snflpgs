@@ -51,7 +51,7 @@ function setMapAreas(data) {
     const scale = img.offsetWidth / (img.naturalWidth);
 
     var link = document.getElementById("touch_ui_link");
-    link.href = "/plugins/Touch_UI/touch/" + img.offsetWidth+ "x" + img.offsetHeight;
+    link.href = "/clickui/" + img.offsetWidth+ "x" + img.offsetHeight;
     i = 0;
     for (const area of data) {
 	new_area = document.createElement('area');
@@ -86,7 +86,7 @@ window.onload = function() {
 
 {% block content %}
 <div style="transform: scale(1.0); transform-origin: top left;">
-<a href="/plugins/Touch_UI" id='touch_ui_link'><img class="ui-image pixelated" src="/ui" id="ui" ismap></a>
+<a href="/clickui" id='touch_ui_link'><img class="ui-image pixelated" src="/ui" id="ui" ismap></a>
 <map name="pwnymap" id="pwnymap">
   {% for shape, coords, alt, href in img_map %}
   <area shape="{{shape}}" coords="{{coords}}" alt="{{alt}}" href="{{href}}">
