@@ -111,6 +111,17 @@ class View(object):
 
         ROOT = self
 
+    def set_rotation(self, rot):
+        self._rotation = rot
+        config['ui']['display']['rotation'] = rot
+        if (self._rotation/90)%2 == 0:
+            self._width = self._layout['width']
+            self._height = self._layout['height']
+        else:
+            # when rotated 90 or 270, swap width and height
+            self._width = self._layout['height']
+            self._height = self._layout['width']
+
     def set_agent(self, agent):
         self._agent = agent
 
