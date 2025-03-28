@@ -1,4 +1,5 @@
 import logging
+import os
 
 import pwnagotchi.plugins as plugins
 from pwnagotchi.ai.epoch import Epoch
