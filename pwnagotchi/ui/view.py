@@ -432,9 +432,6 @@ class View(object):
             if force or len(changes):
                 colormode = '1' if not 'colormode' in self._config['ui'] else self._config['ui']['colormode']
 
-                #if 'foregroundcolor' in self._config['ui']: pwnagotchi.ui.view.BLACK = self._config['ui']['foregroundcolor']
-                #if 'backgroundcolor' in self._config['ui']: pwnagotchi.ui.view.WHITE = self._config['ui']['backgroundcolor']
-
                 self._canvas = Image.new(colormode, (self._width, self._height), WHITE)
                 drawer = ImageDraw.Draw(self._canvas)
                 drawer.fontmode = "1"
@@ -446,6 +443,14 @@ class View(object):
                         lv.draw(self._canvas, drawer)
                     except Exception as e:
                         logging.exception("Error with %s: %s" % (key, e))
+
+                try:
+                    if self._config['ui'].get('show_click_zones', False):
+                        for (shape, coords, key, link) in self._agent._view._state.get_map_actions():
+                            bbox = list(map(int,coords.split(',')))
+                            drawer.rectangle(bbox, outline='Red')
+                except Exception as e:
+                    logging.exception(e)
 
                 self._web_canvas = self._canvas.copy()
 
