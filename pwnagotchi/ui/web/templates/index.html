@@ -6,92 +6,33 @@
 {% endblock %}
 
 {% block script %}
-function mapResizer(maps) {
-    if (!maps) {maps = document.getElementsByTagName('map');}
-    for (const map of maps) {
-        map.img = document.querySelectorAll(`[usemap="#${map.name}"]`)[0];
-        map.areas = map.getElementsByTagName('area');
-        for (const area of map.areas) {
-            area.coordArr = area.coords.split(',');
-        }
-    }
-    function resizeMaps() {
-        for (const map of maps) {
-            const scale = map.img.offsetWidth / (map.img.naturalWidth);
-            for (const area of map.areas) {
-                xcoord = area.coords ;
-                //new_coord = area.coordArr.map(coord => Math.round(coord * scale));
-                new_coord = area.coordArr.map(val => ( val *scale));
-                area.coords = new_coord.join(',');
-            }
-        }
-    }
 
-    window.onresize = function() {
-        resizeMaps()
+window.onload = function() {
+    var image = document.getElementById("ui");
+    var link = document.getElementById("touch_ui_link");
+    link.href = "/clickui/" + image.offsetWidth+ "x" + image.offsetHeight;
+
+    function updateImage() {
+        image.src = image.src.split("?")[0] + "?" + new Date().getTime();
+	link.href = "/clickui/" + image.offsetWidth+ "x" + image.offsetHeight;
     }
-
-
-    resizeMaps();
+    setInterval(updateImage, 1000);
 }
 
-function setMapAreas(data) {
+window.onresize = function() {
     var img = document.getElementById("ui");
     if (img.naturalWidth == 0) {
 	return
     }
-    map = document.getElementById("pwnymap");
-    old_areas = map.getElementsByTagName('area');
-    for (const area of old_areas) {
-	map.removeChild(area)
-    }
-
-    old_areas = map.getElementsByTagName('area');
-
-    const scale = img.offsetWidth / (img.naturalWidth);
-
     var link = document.getElementById("touch_ui_link");
     link.href = "/clickui/" + img.offsetWidth+ "x" + img.offsetHeight;
-    i = 0;
-    for (const area of data) {
-	new_area = document.createElement('area');
-	new_area.shape = area[0];
-	new_area.coords = area[1].split(',').map(val =>val * scale).join(',');
-	new_area.alt = area[2];
-	new_area.href = area[3];
-	if (i == 0) {
-	    map.replaceChild(new_area, old_areas[0]);
-	} else {
-            map.appendChild(new_area);
-	}
-	i += 1;
-    }
-
 }
 
-window.onload = function() {
-    var image = document.getElementById("ui");
-    function updateImage() {
-        image.src = image.src.split("?")[0] + "?" + new Date().getTime();
-	fetch('/update_action_map')
-	    .then(response => response.json())
-	    .then(data => {
-		setMapAreas(data);
-	    }).catch(error => console.error('Error', error));
-    }
-    setInterval(updateImage, 1000);
-    mapResizer()
-}
 {% endblock %}
 
 {% block content %}
 <div style="transform: scale(1.0); transform-origin: top left;">
 <a href="/clickui" id='touch_ui_link'><img class="ui-image pixelated" src="/ui" id="ui" ismap></a>
-<map name="pwnymap" id="pwnymap">
-  {% for shape, coords, alt, href in img_map %}
-  <area shape="{{shape}}" coords="{{coords}}" alt="{{alt}}" href="{{href}}">
-  {% endfor %}
-</map>
 </div>
 <div data-role="navbar">
 	<ul>
