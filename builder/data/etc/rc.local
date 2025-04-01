@@ -42,7 +42,7 @@ if [ "${PWNY_BOARD}" = "BananaPi BPI-M4-Zero" ]; then
     if ! ls -d /sys/class/net/w* ; then
 	# no wifi, so maybe it is a bananapim4zero v2
 	systemctl enable reload_nexmon.service
-        if ! grep bananapi-m4-sdio-wifi-bt /boot/armbianEnv.txt; then
+        if ! grep '^overlays=.*bananapi-m4-sdio-wifi-bt' /boot/armbianEnv.txt; then
 	    # enable the overlay
 	    sed -i.ORIG '/^overlays=.*bananapi-m4-pg-15/s/^/#/' /boot/armbianEnv.txt
 	    sed -i '/^# *overlays=bananapi-m4-sdio/s/^# *//' /boot/armbianEnv.txt
