@@ -226,7 +226,7 @@ def setup_logging(args, config):
 
     root.setLevel(logging.DEBUG if args.debug else logging.INFO)
 
-    if filename and filename != "":
+    if not cfg.get('syslog', False) and filename and filename != "":
         # since python default log rotation might break session data in different files,
         # we need to do log rotation ourselves
         log_rotation(filename, cfg)
