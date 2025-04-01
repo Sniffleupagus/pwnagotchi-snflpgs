@@ -17,13 +17,24 @@
 
 export PWNY_BOARD=$(cat /proc/device-tree/model | tr -d '\0')
 
+wifidev=${1:-""}
+mondev=${2}
+
 if [[ ( "${PWNY_BOARD}" == "BananaPi BPI-M4-Zero v2" ) || ( "${PWNY_BOARD}" == "Raspberry Pi"* ) ]]; then
     # nexmon devices use these standard names for pwnagotchi
-    wifidev="wlan0"
-    mondev="wlan0mon"
-    if [ -e /sys/class/net/mon0 ]; then
-	    /usr/bin/monstop
+    if [ "$wifidev" != "" ]; then
+	wifidev="wlan0"
     fi
+    if [ "$mondev" != "" ]; then
+	mondev="wlan0mon"
+    fi
+    if [ -e /sys/class/net/mon0 ]; then
+	    ip link set mon0 name wlan0mon || /usr/bin/monstop
+    fi
+elif [[ ( "${PWNY_BOARD}" == "BananaPi BPI-M4-Zero" ) &&  "$(ls -d /sys/class/net/wlx* 2>/dev/null)" ]]; then
+    # use known pattern for device name on bananapi
+    wifidev=$(basename $(ls -d /sys/class/net/wlx*))
+    mondev=$wifidev
 else
     # try to figure it out dynamically
     # use built in device, unless another number specified on command line
@@ -74,8 +85,7 @@ if [ "$mondev" ]; then
 		echo "Config says $defdev, but the device says $mondev"
 
 		# my bananapi device has same name in monitor mode as not
-
-		sed -i.bak -e "s/^main.iface = \"$defdev\"/main.iface = \"$mondev\"/" $conf
+		sed -i.bak -e "s,^main.iface = \"$defdev\",main.iface = \"$mondev\"," $conf
 	    else
 		echo "$conf already set for $mondev"
 	    fi
@@ -89,7 +99,7 @@ fi
 if [ "$wifidev" ]; then
     # set WIFI device in pwnlib
     echo updating pwnlib for phy$phy
-    sudo sed -i.bak -e "s/^#*PWNY_EXT_WLAN=\".*\"/PWNY_EXT_WLAN=\"$wifidev\"/" /usr/bin/pwnlib
+    sudo sed -i.bak -e "s,^#*PWNY_EXT_WLAN=\".*\",PWNY_EXT_WLAN=\"$wifidev\"," /usr/bin/pwnlib
 
     NETWORKMGR_CONF="/etc/NetworkManager/NetworkManager.conf"
     if ! grep '\[keyfile\]' $NETWORKMGR_CONF; then
