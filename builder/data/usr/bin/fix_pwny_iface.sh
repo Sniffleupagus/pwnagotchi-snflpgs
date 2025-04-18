@@ -22,11 +22,12 @@ mondev=${2}
 
 if [[ ( "${PWNY_BOARD}" == "BananaPi BPI-M4-Zero v2" ) || ( "${PWNY_BOARD}" == "Raspberry Pi"* ) ]]; then
     # nexmon devices use these standard names for pwnagotchi
-    if [ "$wifidev" != "" ]; then
-	wifidev="wlan0"
+    if [ "$wifidev" == "" ]; then
+        wifidev="wlan0"
+        phy=0
     fi
-    if [ "$mondev" != "" ]; then
-	mondev="wlan0mon"
+    if [ "$mondev" == "" ]; then
+        mondev="wlan0mon"
     fi
     if [ -e /sys/class/net/mon0 ]; then
 	    ip link set mon0 name wlan0mon || /usr/bin/monstop
