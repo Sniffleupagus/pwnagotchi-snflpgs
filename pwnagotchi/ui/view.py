@@ -432,7 +432,7 @@ class View(object):
             if force or len(changes):
                 colormode = '1' if not 'colormode' in self._config['ui'] else self._config['ui']['colormode']
 
-                self._canvas = Image.new(colormode, (self._width, self._height), WHITE)
+                self._canvas = Image.new(colormode, (self._width, self._height), self._backgroundcolor)
                 drawer = ImageDraw.Draw(self._canvas)
                 drawer.fontmode = "1"
 
