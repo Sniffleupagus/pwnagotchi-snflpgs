@@ -1,3 +1,6 @@
 #!/usr/bin/env bash
 source /usr/bin/pwnlib
+(
+flock -x -w 10 200
 stop_monitor_interface
+) 200>/tmp/.monitor_mode.exclusivelock
