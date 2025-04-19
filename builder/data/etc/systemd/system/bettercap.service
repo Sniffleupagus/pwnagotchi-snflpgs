@@ -2,11 +2,13 @@
 Description=bettercap api.rest service.
 Documentation=https://bettercap.org
 After=systemd-udevd.service
+After=NetworkManager.service
 Wants=network.target systemd-udevd.service
 
 [Service]
 Type=simple
 PermissionsStartOnly=true
+ExecStartPre=/usr/bin/monstart
 ExecStart=/usr/bin/bettercap-launcher
 Restart=always
 RestartSec=8

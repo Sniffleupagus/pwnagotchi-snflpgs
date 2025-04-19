@@ -8,6 +8,7 @@ After=pwngrid-peer.service
 Type=simple
 WorkingDirectory=/tmp
 PermissionsStartOnly=true
+ExecStartPre=/usr/bin/monstart
 ExecStart=/usr/bin/pwnagotchi-launcher
 Restart=always
 RestartSec=7
