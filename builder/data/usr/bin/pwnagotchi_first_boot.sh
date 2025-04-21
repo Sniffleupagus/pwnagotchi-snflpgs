@@ -1,10 +1,9 @@
 #!/bin/sh -e
 #
-# rc.local
+# pwnagotchi_first_boot.sh
 #
-# This script is executed at the end of each multiuser runlevel.
-# Make sure that the script will "exit 0" on success or any other
-# value on error.
+# used to be rc.local.FIRSTRUN, but now run from pwnagotch-setup.service
+#
 
 # pwnagotchi first run script
 echo "======"
@@ -30,30 +29,45 @@ blink_led() {
   echo 0 >/sys/class/leds/${PWNY_LED}/brightness
   sleep 0.3
 }
-blink_led 5
+blink_led 6
 sleep 2
-blink_led 5
+blink_led 9
 sleep 2
 echo "Here goes"
 
+
+ARMBIAN_ENV=/boot/armbianEnv.txt
+EXTLINUX_CONF=/boot/extlinux/extlinux.conf
 
 export PWNY_BOARD=$(cat /proc/device-tree/model)
 if [ "${PWNY_BOARD}" = "BananaPi BPI-M4-Zero" ]; then
     if ! ls -d /sys/class/net/w* ; then
 	# no wifi, so maybe it is a bananapim4zero v2
-	systemctl enable reload_nexmon.service
-        if ! grep '^overlays=.*bananapi-m4-sdio-wifi-bt' /boot/armbianEnv.txt; then
-	    # enable the overlay
-	    sed -i.ORIG '/^overlays=.*bananapi-m4-pg-15/s/^/#/' /boot/armbianEnv.txt
-	    sed -i '/^# *overlays=bananapi-m4-sdio/s/^# *//' /boot/armbianEnv.txt
+	#systemctl enable reload_nexmon.service
+	if [ -f ${ARMBIAN_ENV} ]; then
+            if ! grep '^overlays=.*bananapi-m4-sdio-wifi-bt' ${ARMBIAN_ENV}; then
+		# enable the overlay
+		sed -i.ORIG '/^overlays=.*bananapi-m4-pg-15/s/^/#/' ${ARMBIAN_ENV}
+		sed -i '/^# *overlays=bananapi-m4-sdio/s/^# *//' ${ARMBIAN_ENV}
 
-	    # no working bluetooth on V2, so disable wof.service
-	    systemctl disable wof.service || true
+		# no working bluetooth on V2, so disable wof.service
+		systemctl disable wof.service || true
 
-	    sync
-	    echo "Rebooting to install wifi/bt overlay..."
-	    sleep 10
-	    reboot
+		sync
+		echo "Rebooting to install wifi/bt overlay..."
+		sleep 10
+		reboot
+	    fi
+	elif [ -f ${EXTLINUX_CONF} ]; then
+	    if ! grep '^\tfdtoverlays .*bananapi-m4-sdio-wifi-bt' ${EXTLINUX_CONF}; then
+		sed -i.ORIG '/^\t*fdtoverlays.*h616-i2c4/s/fdtoverlays/#fdtoverlays/' ${EXTLINUX_CONF}
+		sed -i '/#fdtoverlays.*bananapi-m4-sdio-wifi-bt/s#fdtoverlays/fdtoverlays/' ${EXTLINUX_CONF}
+
+		sync
+		echo "Rebooting to install wifi/bt overlay..."
+		sleep 10
+		reboot
+	    fi
         fi
     fi
 fi
@@ -77,9 +91,9 @@ if [ -f /boot/pwny-backup.tar.gz ]; then
     tar -C / -h --keep-directory-symlink -xzf /boot/pwny-backup.tar.gz ${exclude_boot} --exclude root/handshakes --exclude etc/pwnagotchi && true
     # overwrite files in /etc/pwnagotchi
     tar -C / -xzvf /boot/pwny-backup.tar.gz etc/pwnagotchi
-    echo "+++ quietly extracting handshakes to /boot/handshakes"
-    tar -C /boot --strip-components 1 --dereference --keep-directory-symlink -xzf /boot/pwny-backup.tar.gz root/handshakes || \
-    tar -C /boot --strip-components 1 --dereference --keep-directory-symlink -xzf /boot/pwny-backup.tar.gz boot/handshakes
+    echo "+++ quietly extracting handshakes to /root/handshakes"
+    tar -C /root --strip-components 1 --dereference --keep-directory-symlink -xzf /boot/pwny-backup.tar.gz root/handshakes || \
+    tar -C /root --strip-components 1 --dereference --keep-directory-symlink -xzf /boot/pwny-backup.tar.gz boot/handshakes
     echo ">>>---> Moving backup to pwnagotchi home directory"
     mkdir -p -m=755 /home/pwnagotchi/Backups
     mv /boot/pwny-backup.tar.gz  /home/pwnagotchi/Backups/pwny-backup-STARTUP.tar.gz
@@ -92,31 +106,10 @@ fi
 echo "+++ Setting up pwnagotchi system services"
 systemctl enable bettercap pwngrid-peer pwnagotchi
 
+# disable setup script from running this again
+systemctl disable pwnmagotchi-setup
+
 systemctl restart bettercap pwngrid-peer pwnagotchi
-
-echo "- Archiving to rc.local.FIRSTRUN and restoring original rc.local"
-mv /etc/rc.local /etc/rc.local.FIRSTRUN
-mv /etc/rc.local.ORIG /etc/rc.local || cat >/etc/rc.local <<EOF
-#!/bin/sh -e
-#
-# rc.local
-#
-# This script is executed at the end of each multiuser runlevel.
-# Make sure that the script will "exit 0" on success or any other
-# value on error.
-#
-# In order to enable or disable this script just change the execution
-# bits.
-#
-# By default this script does nothing.
-
-nmcli conn up usb0
-exit 0
-EOF
-
-chmod a+x /etc/rc.local
-reboot
-exec /etc/rc.local
 
 nmcli conn up usb0
 exit 0
