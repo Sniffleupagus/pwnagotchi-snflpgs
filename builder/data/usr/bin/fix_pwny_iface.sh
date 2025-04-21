@@ -109,8 +109,13 @@ if [ "$wifidev" ]; then
     fi
     if ! grep "face-name:$wifidev" $NETWORKMGR_CONF; then
 	echo "Setting NetworkManager to ignore $wifidev"
-	sed -i "/\[keyfile\]/a\
-       	unmanaged-devices=interface-name:$wifidev" $NETWORKMGR_CONF
+	if [ $wifidev != $mondev ]; then
+	    sed -i "/\[keyfile\]/a\
+       	    unmanaged-devices=interface-name:$wifidev;interface-name:$mondev" $NETWORKMGR_CONF
+	else
+	    sed -i "/\[keyfile\]/a\
+       	    unmanaged-devices=interface-name:$wifidev" $NETWORKMGR_CONF
+	fi
     fi
 
     systemctl reload NetworkManager
