@@ -74,10 +74,20 @@ fi
 
 # set up usb0 through NetworkManager
 echo "+++ Configuring RNDIS interface with NetworkManager"
-nmcli --wait 10 dev con usb0 || true
-nmcli con mod usb0 ipv4.method manual ipv4.address 10.0.0.2/24 ipv4.gateway 10.0.0.1 ipv4.route-metric 950 || true
-nmcli dev set usb0 autoconnect yes || true
-nmcli dev mod usb0 IPV4.ADDRESS 10.0.0.2/24 IPV4.GATEWAY 10.0.0.1
+RNDIS_IFACE=usb0
+
+if [ -f ${EXTLINUX_CONF} ]; then
+	RNDIS_IFACE=usb1
+fi
+
+echo "Initiating ${RNDIS_IFACE} network device"
+nmcli --wait 1 dev con ${RNDIS_IFACE} || true
+echo "Configuring ${RNDIS_IFACE} network connection to manual address"
+nmcli con mod ${RNDIS_IFACE} ipv4.method manual ipv4.address 10.0.0.2/24 ipv4.gateway 10.0.0.1 ipv4.route-metric 950 || true
+#nmcli dev set ${RNDIS_IFACE} autoconnect yes || true
+echo "Configuring ${RNDIS_IFACE} device address"
+nmcli dev mod ${RNDIS_IFACE} IPV4.ADDRESS 10.0.0.2/24 IPV4.GATEWAY 10.0.0.1
+
 
 systemctl stop bettercap pwngrid-peer pwnagotchi
 
@@ -107,7 +117,7 @@ echo "+++ Setting up pwnagotchi system services"
 systemctl enable bettercap pwngrid-peer pwnagotchi
 
 # disable setup script from running this again
-systemctl disable pwnmagotchi-setup
+systemctl disable pwnagotchi-setup
 
 systemctl restart bettercap pwngrid-peer pwnagotchi
 
