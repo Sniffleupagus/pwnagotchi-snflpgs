@@ -1,0 +1,13 @@
+[Unit]
+Description=pwnagotchi "first boot" setup
+Documentation=https://pwnagotchi.org
+Wants=network.target
+After=NetworkManmager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/pwnagotchi_first_boot.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

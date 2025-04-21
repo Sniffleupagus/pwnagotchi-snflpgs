@@ -1,0 +1,122 @@
+#!/bin/sh -e
+#
+# rc.local
+#
+# This script is executed at the end of each multiuser runlevel.
+# Make sure that the script will "exit 0" on success or any other
+# value on error.
+
+# pwnagotchi first run script
+echo "======"
+echo "Pwnagotchi customization in 10 seconds. ^C to stop"
+
+# find a working LED
+PWNY_LED=led0
+for l in led0 ACT "red:status"; do
+    if [ -e "/sys/class/leds/$l/brightness" ]; then
+        PWNY_LED=$l
+        break
+    fi
+done
+
+# well ... it blinks the led
+blink_led() {
+  for i in $(seq 1 "$1"); do
+    echo 0 >/sys/class/leds/${PWNY_LED}/brightness
+    sleep 0.3
+    echo 1 >/sys/class/leds/${PWNY_LED}/brightness
+    sleep 0.3
+  done
+  echo 0 >/sys/class/leds/${PWNY_LED}/brightness
+  sleep 0.3
+}
+blink_led 5
+sleep 2
+blink_led 5
+sleep 2
+echo "Here goes"
+
+
+export PWNY_BOARD=$(cat /proc/device-tree/model)
+if [ "${PWNY_BOARD}" = "BananaPi BPI-M4-Zero" ]; then
+    if ! ls -d /sys/class/net/w* ; then
+	# no wifi, so maybe it is a bananapim4zero v2
+	systemctl enable reload_nexmon.service
+        if ! grep '^overlays=.*bananapi-m4-sdio-wifi-bt' /boot/armbianEnv.txt; then
+	    # enable the overlay
+	    sed -i.ORIG '/^overlays=.*bananapi-m4-pg-15/s/^/#/' /boot/armbianEnv.txt
+	    sed -i '/^# *overlays=bananapi-m4-sdio/s/^# *//' /boot/armbianEnv.txt
+
+	    # no working bluetooth on V2, so disable wof.service
+	    systemctl disable wof.service || true
+
+	    sync
+	    echo "Rebooting to install wifi/bt overlay..."
+	    sleep 10
+	    reboot
+        fi
+    fi
+fi
+
+# set up usb0 through NetworkManager
+echo "+++ Configuring RNDIS interface with NetworkManager"
+nmcli --wait 10 dev con usb0 || true
+nmcli con mod usb0 ipv4.method manual ipv4.address 10.0.0.2/24 ipv4.gateway 10.0.0.1 ipv4.route-metric 950 || true
+nmcli dev set usb0 autoconnect yes || true
+nmcli dev mod usb0 IPV4.ADDRESS 10.0.0.2/24 IPV4.GATEWAY 10.0.0.1
+
+systemctl stop bettercap pwngrid-peer pwnagotchi
+
+# restore a tarball backup file
+if [ -f /boot/pwny-backup.tar.gz ]; then
+    exclude_boot=""
+    if [ ! -f /boot/config.txt ]; then
+	exclude_boot="--exclude boot/{config.txt,cmdline.txt}"
+    fi
+    echo "+++ Restoring pwny from backup"
+    tar -C / -h --keep-directory-symlink -xzf /boot/pwny-backup.tar.gz ${exclude_boot} --exclude root/handshakes --exclude etc/pwnagotchi && true
+    # overwrite files in /etc/pwnagotchi
+    tar -C / -xzvf /boot/pwny-backup.tar.gz etc/pwnagotchi
+    echo "+++ quietly extracting handshakes to /boot/handshakes"
+    tar -C /boot --strip-components 1 --dereference --keep-directory-symlink -xzf /boot/pwny-backup.tar.gz root/handshakes || \
+    tar -C /boot --strip-components 1 --dereference --keep-directory-symlink -xzf /boot/pwny-backup.tar.gz boot/handshakes
+    echo ">>>---> Moving backup to pwnagotchi home directory"
+    mkdir -p -m=755 /home/pwnagotchi/Backups
+    mv /boot/pwny-backup.tar.gz  /home/pwnagotchi/Backups/pwny-backup-STARTUP.tar.gz
+    chown -R pwnagotchi:pwnagotchi /home/pwnagotchi/Backups
+fi
+
+/usr/bin/fix_pwny_ethernet.sh
+/usr/bin/fix_pwny_iface.sh
+
+echo "+++ Setting up pwnagotchi system services"
+systemctl enable bettercap pwngrid-peer pwnagotchi
+
+systemctl restart bettercap pwngrid-peer pwnagotchi
+
+echo "- Archiving to rc.local.FIRSTRUN and restoring original rc.local"
+mv /etc/rc.local /etc/rc.local.FIRSTRUN
+mv /etc/rc.local.ORIG /etc/rc.local || cat >/etc/rc.local <<EOF
+#!/bin/sh -e
+#
+# rc.local
+#
+# This script is executed at the end of each multiuser runlevel.
+# Make sure that the script will "exit 0" on success or any other
+# value on error.
+#
+# In order to enable or disable this script just change the execution
+# bits.
+#
+# By default this script does nothing.
+
+nmcli conn up usb0
+exit 0
+EOF
+
+chmod a+x /etc/rc.local
+reboot
+exec /etc/rc.local
+
+nmcli conn up usb0
+exit 0
