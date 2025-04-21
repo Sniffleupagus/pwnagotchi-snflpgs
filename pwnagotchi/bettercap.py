@@ -1,7 +1,10 @@
 import json
 import logging
 import requests
+
 import websockets
+import websockets.exceptions
+import asyncio
 
 from requests.auth import HTTPBasicAuth
 
@@ -39,30 +42,38 @@ class Client(object):
         return decode(r)
 
     async def start_websocket(self, consumer):
+      try:
         s = "%s/events" % self.websocket
         restart_monitor = False
-        while True:
+        #while True:
+        if True:
             try:
-                async with websockets.connect(s, ping_interval=60, ping_timeout=90) as ws:
+
+                async with websockets.connect(s, timeout = 10, ping_interval=60, ping_timeout=90) as ws:
                     if restart_monitor:
                         logging.info("resetting bettercap is so fetch")
                         self._reset_wifi_settings()
                         if self.mode != 'manual':
                             self.run('wifi.recon on')
                         restart_monitor = False
+
                     async for msg in ws:
                         try:
                             await consumer(msg)
                         except Exception as ex:
-                            logging.debug("Error while parsing event (%s)", ex)
-            except websockets.exceptions.ConnectionClosedError:
-                logging.debug("Lost websocket connection. Reconnecting...")
-            except websockets.exceptions.WebSocketException as wex:
-                logging.debug("Websocket exception (%s)", wex)
+                            logging.error("Error while parsing event (%s)", ex)
+            except asyncio.TimeoutError:
+                logging.error("Connection timed out. Reconnecting %s" % (e))
+#            except websockets.ConnectionClosedError:
+#                logging.error("Lost websocket connection. Reconnecting...")
+#            except websockets.WebSocketException as wex:
+#                logging.error("Websocket exception (%s)" % wex)
             except Exception as e:
-                logging.exception(e)
-                return
+                logging.exception("WEBSOCKET RETURN: %s" % (e))
+                
             restart_monitor = True
+      except Exception as e:
+        logging.exception("bye webhook: %s" % e)
 
     def run(self, command, verbose_errors=True):
         r = requests.post("%s/session" % self.url, auth=self.auth, json={'cmd': command})
