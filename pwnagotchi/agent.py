@@ -89,8 +89,8 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         self.run('set wifi.rssi.min %d' % self._config['personality']['min_rssi'])
         self.run('set wifi.handshakes.file %s' % self._config['bettercap']['handshakes'])
         self.run('set wifi.handshakes.aggregate false')
-        channels = self._config['personality'].get('channels', [1,6,11])
-        self.run('wifi.recon.channels %s' % ','.join(map(str, channels)))
+        #channels = self._config['personality'].get('channels', [1,6,11])
+        #self.run('wifi.recon.channel %s' % (','.join(map(str, channels))))
 
     def start_monitor_mode(self):
         mon_iface = self._config['main']['iface']
