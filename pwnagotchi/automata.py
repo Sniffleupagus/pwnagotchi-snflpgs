@@ -144,9 +144,17 @@ class Automata(object):
             self.run('wifi.recon on')
         if self._epoch.blind_for and self._epoch.blind_for%5 == 0:
             logging.info("%d epochs without visible access points -> restarting bettercap...", self._epoch.blind_for)
-            self.run('wifi.recon off')
-            os.system("systemctl restart bettercap")
+            try:
+                self.run('wifi.recon off')
+                time.sleep(1)
+                self._reset_wifi_settings()
+            except Exception as e:
+                logging.exception("Restarting bettercap: %s" % (e))
+                os.system("systemctl restart bettercap")
+
         if self._epoch.blind_for >= self._config['main']['mon_max_blind_epochs']:
             logging.critical("%d epochs without visible access points -> rebooting ...", self._epoch.blind_for)
-            self._reboot()
+            self.run('wifi.recon off')
+            self._save_recovery_data()
+            self._restart()
             self._epoch.blind_for = 0

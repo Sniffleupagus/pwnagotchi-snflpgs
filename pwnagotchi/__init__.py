@@ -139,7 +139,7 @@ def restart(mode):
     else:
         os.system("touch /root/.pwnagotchi-manual")
 
-    os.system("service bettercap restart")
+    #os.system("service bettercap restart")
     os.system("service pwnagotchi restart")
 
 

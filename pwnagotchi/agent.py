@@ -89,6 +89,8 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         self.run('set wifi.rssi.min %d' % self._config['personality']['min_rssi'])
         self.run('set wifi.handshakes.file %s' % self._config['bettercap']['handshakes'])
         self.run('set wifi.handshakes.aggregate false')
+        channels = self._config['personality'].get('channels', [1,6,11])
+        self.run('wifi.recon.channels %s' % ','.join(map(str, channels)))
 
     def start_monitor_mode(self):
         mon_iface = self._config['main']['iface']
@@ -120,11 +122,11 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
 
         wifi_running = self.is_module_running('wifi')
         if wifi_running and restart:
-            logging.debug("restarting wifi module ...")
+            logging.warn("restarting wifi module ...")
             self.restart_module('wifi.recon')
             self.run('wifi.clear')
         elif not wifi_running:
-            logging.debug("starting wifi module ...")
+            logging.warn("starting wifi module ...")
             self.start_module('wifi.recon')
 
         self.start_advertising()
@@ -166,10 +168,10 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
 
         if not channels:
             self._current_channel = 0
-            logging.debug("RECON %ds", recon_time)
+            logging.warn("RECON %ds", recon_time)
             self.run('wifi.recon.channel clear')
         else:
-            logging.debug("RECON %ds ON CHANNELS %s", recon_time, ','.join(map(str, channels)))
+            logging.warn("RECON %ds ON CHANNELS %s", recon_time, ','.join(map(str, channels)))
             try:
                 self.run('wifi.recon.channel %s' % ','.join(map(str, channels)))
             except Exception as e:
