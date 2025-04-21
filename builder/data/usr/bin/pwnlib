@@ -106,7 +106,9 @@ start_monitor_interface() {
   else
       # default method
       # works for "old" BananapiM4Zero with Realtek 8821AU onboard
+      ifconfig ${PWNY_WIFI_IFACE} up
       airmon-ng start ${PWNY_WIFI_IFACE}
+      ifconfig ${PWNY_MON_IFACE} up
   fi
 }
 
