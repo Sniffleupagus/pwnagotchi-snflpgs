@@ -61,7 +61,7 @@ if [ "${PWNY_BOARD}" = "BananaPi BPI-M4-Zero" ]; then
 	elif [ -f ${EXTLINUX_CONF} ]; then
 	    if ! grep '^\tfdtoverlays .*bananapi-m4-sdio-wifi-bt' ${EXTLINUX_CONF}; then
 		sed -i.ORIG '/^\t*fdtoverlays.*h616-i2c4/s/fdtoverlays/#fdtoverlays/' ${EXTLINUX_CONF}
-		sed -i '/#fdtoverlays.*bananapi-m4-sdio-wifi-bt/s#fdtoverlays/fdtoverlays/' ${EXTLINUX_CONF}
+		sed -i '/#fdtoverlays.*bananapi-m4-sdio-wifi-bt/s/#fdtoverlays/fdtoverlays/' ${EXTLINUX_CONF}
 
 		sync
 		echo "Rebooting to install wifi/bt overlay..."
