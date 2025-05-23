@@ -92,21 +92,25 @@ nmcli dev mod ${RNDIS_IFACE} IPV4.ADDRESS 10.0.0.2/24 IPV4.GATEWAY 10.0.0.1
 systemctl stop bettercap pwngrid-peer pwnagotchi
 
 # restore a tarball backup file
-if [ -f /boot/pwny-backup.tar.gz ]; then
+BACKUP=/boot/pwny-backup.tar.gz
+if [ -f /boot/firmware/pwny-backup.tar.gz ]; then
+    BACKUP=/boot/firmware/pwny-backup.tar.gz
+fi
+if [ -f ${BACKUP} ]; then
     exclude_boot=""
     if [ ! -f /boot/config.txt ]; then
-	exclude_boot="--exclude boot/{config.txt,cmdline.txt}"
+	      exclude_boot="--exclude boot/{config.txt,cmdline.txt}"
     fi
     echo "+++ Restoring pwny from backup"
-    tar -C / -h --keep-directory-symlink -xzf /boot/pwny-backup.tar.gz ${exclude_boot} --exclude root/handshakes --exclude etc/pwnagotchi && true
+    tar -C / -h --keep-directory-symlink -xzf ${BACKUP} ${exclude_boot} --exclude root/handshakes --exclude etc/pwnagotchi && true
     # overwrite files in /etc/pwnagotchi
-    tar -C / -xzvf /boot/pwny-backup.tar.gz etc/pwnagotchi
+    tar -C / -xzvf ${BACKUP} etc/pwnagotchi
     echo "+++ quietly extracting handshakes to /root/handshakes"
-    tar -C /root --strip-components 1 --dereference --keep-directory-symlink -xzf /boot/pwny-backup.tar.gz root/handshakes || \
-    tar -C /root --strip-components 1 --dereference --keep-directory-symlink -xzf /boot/pwny-backup.tar.gz boot/handshakes
+    tar -C /root --strip-components 1 --dereference --keep-directory-symlink -xzf ${BACKUP} root/handshakes || \
+    tar -C /root --strip-components 1 --dereference --keep-directory-symlink -xzf ${BACKUP} boot/handshakes
     echo ">>>---> Moving backup to pwnagotchi home directory"
     mkdir -p -m=755 /home/pwnagotchi/Backups
-    mv /boot/pwny-backup.tar.gz  /home/pwnagotchi/Backups/pwny-backup-STARTUP.tar.gz
+    mv ${BACKUP}  /home/pwnagotchi/Backups/pwny-backup-STARTUP.tar.gz
     chown -R pwnagotchi:pwnagotchi /home/pwnagotchi/Backups
 fi
 
