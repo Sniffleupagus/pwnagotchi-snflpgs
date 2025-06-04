@@ -36,12 +36,13 @@ class DisplayHatMini(DisplayImpl):
     def initialize(self):
         logging.info("initializing Display Hat Mini")
         from pwnagotchi.ui.hw.libs.pimoroni.displayhatmini.ST7789 import ST7789
+        config = self._config['ui']['display']
         if not self._display:
-            self._display = ST7789(self._config.get('spi_dev', 1),     # SPIDEV(spi_dev, spi_cs)
-                                   self._config.get('spi_cs', 1),      # /dev/spidev{spi_dev}.{spi_cs}
-                                   self._config.get('spi_dc', 9),      # GPIO pin for DC
-                                   self._config.get('backlight',13),   # GPIO pin for backlight
-                                   backlight_pwm=self._config.get('backlight_pwm', 150)) # pwm frequency (0=no pwm)
+            self._display = ST7789(config.get('spi_dev', 1),     # SPIDEV(spi_dev, spi_cs)
+                                   config.get('spi_cs', 1),      # /dev/spidev{spi_dev}.{spi_cs}
+                                   config.get('spi_dc', 9),      # GPIO pin for DC
+                                   config.get('backlight',13),   # GPIO pin for backlight
+                                   backlight_pwm=config.get('backlight_pwm', 150)) # pwm frequency (0=no pwm)
 
     def render(self, canvas):
         self._display.display(canvas)
