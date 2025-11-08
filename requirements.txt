@@ -8,7 +8,7 @@ tweepy
 file-read-backwards
 inky
 smbus2
-Pillow==8.1.2
+Pillow>=8.1.2
 spidev
 gast
 flask==1.1.2
