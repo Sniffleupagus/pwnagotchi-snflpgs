@@ -266,7 +266,7 @@ class Handler:
                 img_io = BytesIO()
                 self._agent._view._web_canvas.save(img_io, 'PNG')
                 img_io.seek(0)
-                return send_file(img_io, mimetype='image/jpwn')
+                return send_file(img_io, mimetype='image/png')
       except Exception as e:
           logging.exception(e)
           return send_file(web.frame_path, mimetype='image/png')
