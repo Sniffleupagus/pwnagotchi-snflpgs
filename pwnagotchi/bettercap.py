@@ -42,16 +42,13 @@ class Client(object):
         return decode(r)
 
     async def start_websocket(self, consumer):
-      try:
         s = "%s/events" % self.websocket
         restart_monitor = False
-        #while True:
-        if True:
+        while True:
             try:
-
-                async with websockets.connect(s, timeout = 10, ping_interval=60, ping_timeout=90) as ws:
+                async with websockets.connect(s, timeout=10, ping_interval=60, ping_timeout=90) as ws:
                     if restart_monitor:
-                        logging.info("resetting bettercap is so fetch")
+                        logging.info("bettercap reconnected, resetting wifi settings")
                         self._reset_wifi_settings()
                         if self.mode != 'manual':
                             self.run('wifi.recon on')
@@ -61,19 +58,18 @@ class Client(object):
                         try:
                             await consumer(msg)
                         except Exception as ex:
-                            logging.error("Error while parsing event (%s)", ex)
+                            logging.error("error while parsing bettercap event (%s)", ex)
             except asyncio.TimeoutError:
-                logging.error("Connection timed out. Reconnecting %s" % (e))
-#            except websockets.ConnectionClosedError:
-#                logging.error("Lost websocket connection. Reconnecting...")
-#            except websockets.WebSocketException as wex:
-#                logging.error("Websocket exception (%s)" % wex)
+                logging.error("bettercap websocket timed out, reconnecting...")
+            except websockets.exceptions.ConnectionClosedError as e:
+                logging.error("bettercap websocket connection closed (%s), reconnecting...", e)
+            except websockets.exceptions.WebSocketException as e:
+                logging.error("bettercap websocket exception (%s), reconnecting...", e)
             except Exception as e:
-                logging.exception("WEBSOCKET RETURN: %s" % (e))
-                
+                logging.exception("bettercap websocket error (%s), reconnecting...", e)
+
             restart_monitor = True
-      except Exception as e:
-        logging.exception("bye webhook: %s" % e)
+            await asyncio.sleep(5)
 
     def run(self, command, verbose_errors=True):
         r = requests.post("%s/session" % self.url, auth=self.auth, json={'cmd': command})

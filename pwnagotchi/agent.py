@@ -462,12 +462,10 @@ class Agent(Client, Automata, AsyncAdvertiser, AsyncTrainer):
         while True:
             logging.debug("[agent:_event_poller] polling events ...")
             try:
-                loop.create_task(self.start_websocket(self._on_event))
-                loop.run_forever()
-
-                logging.warn("[agent:_event_poller] loop loop loop")
+                loop.run_until_complete(self.start_websocket(self._on_event))
+                logging.warning("[agent:_event_poller] start_websocket returned, restarting")
             except Exception as ex:
-                logging.error("[agent:_event_poller] Error while polling via websocket (%s)", ex)
+                logging.error("[agent:_event_poller] error while polling via websocket (%s), restarting", ex)
 
     def start_event_polling(self):
         # start a thread and pass in the mainloop
